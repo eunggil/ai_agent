@@ -1,0 +1,37 @@
+# FastAPI & Server
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+pydantic==2.5.3
+pydantic-settings==2.1.0
+
+# Google Cloud & Vertex AI
+# 1.70+ : Imagen 4, Veo 3.1 지원
+google-cloud-aiplatform>=1.70.0
+google-cloud-storage>=2.14.0
+google-cloud-pubsub>=2.19.0
+google-cloud-firestore>=2.14.0
+google-cloud-bigquery>=3.15.0
+google-auth>=2.27.0
+
+# LangChain & LangGraph
+langchain==0.1.0
+langchain-google-vertexai==0.0.6
+langgraph==0.0.20
+langsmith==0.0.77
+
+# Vector & Database
+pgvector==0.2.4
+psycopg2-binary==2.9.9
+sqlalchemy==2.0.25
+redis==5.0.1
+
+# Data Processing
+numpy==1.26.3
+pandas==2.1.4
+scikit-learn==1.4.0
+
+# Utilities
+python-dotenv==1.0.0
+python-multipart==0.0.6
+httpx==0.26.0
+tenacity==8.2.3

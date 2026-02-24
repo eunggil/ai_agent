@@ -1,0 +1,40 @@
+# AI Agent - Development Dockerfile
+FROM python:3.11-slim
+
+# 작업 디렉토리 설정
+WORKDIR /app
+
+# 시스템 의존성 설치
+RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
+    git \
+    curl \
+    vim \
+    postgresql-client \
+    && rm -rf /var/lib/apt/lists/*
+
+# Python 의존성 복사 및 설치
+COPY requirements.txt .
+COPY requirements-dev.txt* ./
+RUN pip install --no-cache-dir -r requirements.txt && \
+    if [ -f requirements-dev.txt ]; then pip install --no-cache-dir -r requirements-dev.txt; fi
+
+# 개발용 도구 설치
+RUN pip install --no-cache-dir \
+    pytest \
+    pytest-cov \
+    black \
+    flake8 \
+    mypy \
+    ipython
+
+# 환경 변수 설정
+ENV PYTHONPATH=/app
+ENV PYTHONUNBUFFERED=1
+
+# 포트 노출
+EXPOSE 8000
+
+# 개발 서버 실행 (hot reload)
+CMD ["uvicorn", "src.api.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

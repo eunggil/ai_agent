@@ -1,0 +1,48 @@
+# ============================================================
+# 미디어 생성 의존성 (이미지/영상 생성에 필요)
+# 설치: pip install -r requirements-media.txt
+#
+# ⚠️  GPU 권장: VRAM 8GB+ (SDXL), 4GB+ (SD1.5)
+#    CPU 사용 시 이미지 생성에 수분 소요될 수 있음
+#
+# Mac (Apple Silicon):
+#    - Docker 내부에서는 MPS 미지원 → CPU 사용
+#    - 호스트에서 직접 실행 시 MPS 가속 가능
+# ============================================================
+
+# ──────────────────────────────────────────────────────────
+# 공통 (이미지/영상 생성 공통 의존성)
+# ──────────────────────────────────────────────────────────
+Pillow>=10.2.0
+transformers>=4.38.0
+accelerate>=0.27.0
+
+# ──────────────────────────────────────────────────────────
+# Diffusers (Stable Diffusion, LCM-LoRA, AnimateDiff)
+# MEDIA_PROVIDER=local_diffusers 일 때 필요
+# ──────────────────────────────────────────────────────────
+diffusers>=0.27.0
+
+# ──────────────────────────────────────────────────────────
+# PyTorch - 환경에 맞는 버전 선택
+# ──────────────────────────────────────────────────────────
+
+# CPU 전용 (느림, GPU 없을 때):
+# torch>=2.2.0 torchvision>=0.17.0
+
+# CUDA 12.1 (Linux/Windows, NVIDIA GPU):
+# torch>=2.2.0 torchvision>=0.17.0 --index-url https://download.pytorch.org/whl/cu121
+
+# MPS (Apple Silicon Mac, 호스트 직접 실행 시):
+torch>=2.2.0
+torchvision>=0.17.0
+
+# xformers (CUDA 전용 - 메모리 효율 최적화, 선택사항):
+# xformers>=0.0.24
+
+# ──────────────────────────────────────────────────────────
+# Replicate API (클라우드 기반, 로컬 GPU 불필요)
+# MEDIA_PROVIDER=replicate 일 때 필요
+# API 토큰: https://replicate.com/account/api-tokens
+# ──────────────────────────────────────────────────────────
+replicate>=0.25.0

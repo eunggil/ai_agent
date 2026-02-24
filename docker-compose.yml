@@ -1,0 +1,138 @@
+version: '3.8'
+
+services:
+  # AI Agent 애플리케이션
+  ai-agent:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: ai-agent-dev
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=development
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/credentials.json
+      - GCP_PROJECT_ID=${GCP_PROJECT_ID}
+      - GCP_REGION=${GCP_REGION:-us-central1}
+      # AI 프로바이더 설정 (vertex | local)
+      - AI_PROVIDER=${AI_PROVIDER:-vertex}
+      # 옵션 2 (로컬 LLM): AI_PROVIDER=local 일 때 사용
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://ollama:11434}
+      - LOCAL_MODEL=${LOCAL_MODEL:-llama3}
+      # Vertex AI 모델 설정 (AI_PROVIDER=vertex 일 때)
+      - VERTEX_AI_MODEL=${VERTEX_AI_MODEL:-gemini-1.5-flash}
+      - VERTEX_AI_LOCATION=${VERTEX_AI_LOCATION:-us-central1}
+      # Mock DB 사용 (기본값)
+      - USE_MOCK_VECTOR_DB=${USE_MOCK_VECTOR_DB:-true}
+      - USE_MOCK_GRAPH_DB=${USE_MOCK_GRAPH_DB:-true}
+      # PostgreSQL 연결 (선택적)
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=${POSTGRES_DB:-ai_agent}
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      # Redis 연결 (선택적)
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      # 미디어 생성 설정
+      - MEDIA_PROVIDER=${MEDIA_PROVIDER:-none}
+      - MEDIA_TYPE=${MEDIA_TYPE:-image}
+      - IMAGE_MODEL=${IMAGE_MODEL:-lcm-lora-sdxl}
+      - VIDEO_MODEL=${VIDEO_MODEL:-animatediff-lcm}
+      - DIFFUSERS_DEVICE=${DIFFUSERS_DEVICE:-auto}
+      - MEDIA_OUTPUT_DIR=/app/generated_media
+      - REPLICATE_API_TOKEN=${REPLICATE_API_TOKEN:-}
+    volumes:
+      # 코드 hot reload를 위한 볼륨 마운트
+      - ./src:/app/src
+      - ./tests:/app/tests
+      # GCP 인증 키 마운트
+      # - Vertex AI 사용 시: GOOGLE_APPLICATION_CREDENTIALS에 절대경로 지정
+      # - Ollama(로컬) 사용 시: placeholder 파일 사용 (GCP 인증 불필요)
+      - ${GOOGLE_APPLICATION_CREDENTIALS:-./credentials.placeholder.json}:/app/credentials.json:ro
+      # 생성된 미디어 파일 저장
+      - generated_media:/app/generated_media
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - ai-agent-network
+    command: uvicorn src.api.main:app --host 0.0.0.0 --port 8000 --reload
+
+  # PostgreSQL (pgvector 포함) - 선택적
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: ai-agent-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-ai_agent}
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init_db.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ai-agent-network
+
+  # Redis - 선택적 (캐시, LangGraph checkpointer)
+  redis:
+    image: redis:7-alpine
+    container_name: ai-agent-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - ai-agent-network
+
+  # Ollama (선택적) - 로컬 LLM 서버
+  # 사용법: AI_PROVIDER=local docker-compose --profile local-llm up
+  # 모델 다운로드: docker-compose exec ollama ollama pull llama3
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ai-agent-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - ai-agent-network
+    profiles:
+      - local-llm
+
+  # pgAdmin (선택적) - PostgreSQL 관리 UI
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: ai-agent-pgadmin
+    ports:
+      - "5050:80"
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=admin@example.com
+      - PGADMIN_DEFAULT_PASSWORD=admin
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      - postgres
+    networks:
+      - ai-agent-network
+    profiles:
+      - tools
+
+networks:
+  ai-agent-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  pgadmin_data:
+  ollama_data:
+  generated_media:
