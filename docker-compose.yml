@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # AI Agent 애플리케이션
   ai-agent:

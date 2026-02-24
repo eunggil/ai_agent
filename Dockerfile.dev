@@ -17,6 +17,7 @@ RUN apt-get update && apt-get install -y \
 # Python 의존성 복사 및 설치
 COPY requirements.txt .
 COPY requirements-dev.txt* ./
+RUN pip install --upgrade pip
 RUN pip install --no-cache-dir -r requirements.txt && \
     if [ -f requirements-dev.txt ]; then pip install --no-cache-dir -r requirements-dev.txt; fi
 
