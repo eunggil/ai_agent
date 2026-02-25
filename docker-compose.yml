@@ -18,7 +18,7 @@ services:
       - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://ollama:11434}
       - LOCAL_MODEL=${LOCAL_MODEL:-llama3}
       # Vertex AI 모델 설정 (AI_PROVIDER=vertex 일 때)
-      - VERTEX_AI_MODEL=${VERTEX_AI_MODEL:-gemini-1.5-flash}
+      - VERTEX_AI_MODEL=${VERTEX_AI_MODEL:-gemini-2.0-flash}
       - VERTEX_AI_LOCATION=${VERTEX_AI_LOCATION:-us-central1}
       # Mock DB 사용 (기본값)
       - USE_MOCK_VECTOR_DB=${USE_MOCK_VECTOR_DB:-true}
@@ -44,12 +44,13 @@ services:
       # 코드 hot reload를 위한 볼륨 마운트
       - ./src:/app/src
       - ./tests:/app/tests
+      - ./scripts:/app/scripts
       # GCP 인증 키 마운트
       # - Vertex AI 사용 시: GOOGLE_APPLICATION_CREDENTIALS에 절대경로 지정
       # - Ollama(로컬) 사용 시: placeholder 파일 사용 (GCP 인증 불필요)
       - ${GOOGLE_APPLICATION_CREDENTIALS:-./credentials.placeholder.json}:/app/credentials.json:ro
-      # 생성된 미디어 파일 저장
-      - generated_media:/app/generated_media
+      # 생성된 미디어 파일 저장 (로컬 디렉토리 바인딩 - Docker 재시작 후에도 유지)
+      - ./generated_media:/app/generated_media
     depends_on:
       postgres:
         condition: service_healthy
@@ -57,14 +58,13 @@ services:
         condition: service_started
     networks:
       - ai-agent-network
-    command: uvicorn src.api.main:app --host 0.0.0.0 --port 8000 --reload
 
   # PostgreSQL (pgvector 포함) - 선택적
   postgres:
     image: pgvector/pgvector:pg16
     container_name: ai-agent-postgres
     ports:
-      - "5432:5432"
+      - "5433:5432"
     environment:
       - POSTGRES_DB=${POSTGRES_DB:-ai_agent}
       - POSTGRES_USER=${POSTGRES_USER:-postgres}
@@ -72,6 +72,8 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./scripts/init_db.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./scripts/pg_hba.conf:/etc/postgresql/pg_hba.conf
+    command: postgres -c hba_file=/etc/postgresql/pg_hba.conf
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
@@ -133,4 +135,3 @@ volumes:
   redis_data:
   pgadmin_data:
   ollama_data:
-  generated_media:

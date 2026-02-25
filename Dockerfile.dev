@@ -19,7 +19,8 @@ COPY requirements.txt .
 COPY requirements-dev.txt* ./
 RUN pip install --upgrade pip
 RUN pip install --no-cache-dir -r requirements.txt && \
-    if [ -f requirements-dev.txt ]; then pip install --no-cache-dir -r requirements-dev.txt; fi
+    if [ -f requirements-dev.txt ]; then pip install --no-cache-dir -r requirements-dev.txt; fi && \
+    pip install --no-cache-dir "Pillow>=10.2.0"
 
 # 개발용 도구 설치
 RUN pip install --no-cache-dir \
@@ -37,5 +38,9 @@ ENV PYTHONUNBUFFERED=1
 # 포트 노출
 EXPOSE 8000
 
-# 개발 서버 실행 (hot reload)
-CMD ["uvicorn", "src.api.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+# entrypoint 복사 및 실행 권한 부여
+COPY scripts/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+# 첫 실행 시 데모 데이터 자동 시드 후 서버 시작
+ENTRYPOINT ["/entrypoint.sh"]

@@ -24,6 +24,7 @@ Imagen 4 제약사항:
     또는 GOOGLE_APPLICATION_CREDENTIALS 환경변수
 """
 import base64
+import io
 import logging
 import os
 import tempfile
@@ -81,13 +82,14 @@ class VertexImagenProvider(MediaProvider):
         image = response.images[0]
 
         image_bytes = _extract_image_bytes(image)
-        b64 = base64.b64encode(image_bytes).decode("utf-8")
+        webp_bytes = _convert_to_webp(image_bytes)
+        b64 = base64.b64encode(webp_bytes).decode("utf-8")
 
         return MediaResult(
             data=b64,
             data_type="base64",
             media_type="image",
-            mime_type="image/png",
+            mime_type="image/webp",
             metadata={
                 "model": self.model_name,
                 "provider": self.name,
@@ -115,6 +117,15 @@ def _to_aspect_ratio(width: int, height: int) -> str:
         "3:4":  3 / 4,
     }
     return min(candidates, key=lambda k: abs(candidates[k] - ratio))
+
+
+def _convert_to_webp(image_bytes: bytes, quality: int = 85) -> bytes:
+    """PNG/JPEG bytes → WebP bytes 변환"""
+    from PIL import Image
+    with Image.open(io.BytesIO(image_bytes)) as img:
+        buf = io.BytesIO()
+        img.save(buf, format="WEBP", quality=quality)
+        return buf.getvalue()
 
 
 def _extract_image_bytes(image) -> bytes:

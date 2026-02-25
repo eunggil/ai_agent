@@ -20,6 +20,7 @@ Pipeline (6단계):
 import json
 import logging
 import os
+import re
 from typing import Any, Optional
 
 from langgraph.graph import StateGraph, END
@@ -27,11 +28,15 @@ from langgraph.graph import StateGraph, END
 from .providers import get_provider, ModelProvider
 from .media_providers import get_media_provider, MediaProvider
 from .state import FeedAgentState
-from .mock_data import get_user, retrieve_ad_candidates
 
 logger = logging.getLogger(__name__)
 
 USE_MOCK = os.getenv("USE_MOCK_VECTOR_DB", "true").lower() == "true"
+
+if USE_MOCK:
+    from .mock_data import get_user, retrieve_ad_candidates
+else:
+    from .db_data import get_user, retrieve_ad_candidates
 MEDIA_TYPE = os.getenv("MEDIA_TYPE", "image")  # image | video | text
 
 
@@ -76,9 +81,9 @@ def _make_state_interpreter_node(provider: ModelProvider):
 
         logger.info(f"[2/6 state_interpreter] calling {provider.name}")
         try:
-            result = provider.generate(llm_prompt, system=system)
-            json.loads(result.strip())  # 유효성 검증
-            state["state_analysis"] = result.strip()
+            result = _strip_md_json(provider.generate(llm_prompt, system=system))
+            json.loads(result)  # 유효성 검증
+            state["state_analysis"] = result
         except json.JSONDecodeError:
             state["state_analysis"] = json.dumps({
                 "intent": prompt,
@@ -141,9 +146,9 @@ def _make_strategy_planner_node(provider: ModelProvider):
 
         logger.info(f"[4/6 strategy_planner] calling {provider.name}")
         try:
-            result = provider.generate(llm_prompt, system=system)
-            json.loads(result.strip())
-            state["strategy"] = result.strip()
+            result = _strip_md_json(provider.generate(llm_prompt, system=system))
+            json.loads(result)
+            state["strategy"] = result
         except json.JSONDecodeError:
             first = state["ad_candidates"][0] if state["ad_candidates"] else {}
             state["strategy"] = json.dumps({
@@ -203,8 +208,8 @@ def _make_creative_generator_node(provider: ModelProvider):
 
         logger.info(f"[5/6 creative_generator] calling {provider.name}")
         try:
-            result = provider.generate(llm_prompt, system=system)
-            parsed = json.loads(result.strip())
+            result = _strip_md_json(provider.generate(llm_prompt, system=system))
+            parsed = json.loads(result)
 
             state["generated_content"] = parsed.get("text_content", "")
             state["image_prompt"] = parsed.get("image_prompt", "")
@@ -363,6 +368,15 @@ def get_agent() -> FeedAgent:
 # ──────────────────────────────────────────
 # 유틸
 # ──────────────────────────────────────────
+
+def _strip_md_json(text: str) -> str:
+    """LLM 응답에서 JSON 객체만 추출 (```json ... ``` 래퍼 제거)."""
+    start = text.find("{")
+    end = text.rfind("}")
+    if start != -1 and end != -1 and end > start:
+        return text[start:end + 1]
+    return text.strip()
+
 
 def _parse_json(s: str, default: dict = None) -> dict:
     try:

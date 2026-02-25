@@ -59,6 +59,10 @@ logs/
 .DS_Store
 Thumbs.db
 
+# Generated media (generated_media/.gitkeep 은 유지)
+generated_media/*
+!generated_media/.gitkeep
+
 # Temp
 tmp/
 temp/

@@ -2,14 +2,17 @@
 AI Agent FastAPI Application
 """
 import asyncio
+import base64
 import json
 import os
+import uuid
 from typing import Any, Dict, Optional
 
 import logging
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
@@ -29,6 +32,8 @@ AI_PROVIDER = os.getenv("AI_PROVIDER", "vertex")
 MEDIA_PROVIDER = os.getenv("MEDIA_PROVIDER", "none")
 USE_MOCK_VECTOR_DB = os.getenv("USE_MOCK_VECTOR_DB", "true").lower() == "true"
 USE_MOCK_GRAPH_DB = os.getenv("USE_MOCK_GRAPH_DB", "true").lower() == "true"
+MEDIA_OUTPUT_DIR = os.getenv("MEDIA_OUTPUT_DIR", "/tmp/ai_agent_media")
+os.makedirs(MEDIA_OUTPUT_DIR, exist_ok=True)
 
 # FastAPI 앱
 app = FastAPI(
@@ -139,13 +144,29 @@ async def generate_ai_feed(request: AIGenerateRequest):
         strategy = _try_parse_json(result.get("strategy", "{}"))
         state_analysis = _try_parse_json(result.get("state_analysis", "{}"))
 
-        # 미디어 결과 구성
+        # 선택된 광고 이미지 URL 추출
+        ad_candidates = result.get("ad_candidates", [])
+        selected_ad = next(
+            (ad for ad in ad_candidates if ad.get("ad_id") == strategy.get("selected_ad_id")),
+            ad_candidates[0] if ad_candidates else {},
+        )
+        ad_image_url = selected_ad.get("image_url", "")
+
+        # 미디어 결과 구성 — base64 → 파일 저장 후 URL 반환
         media_result = None
         if result.get("media_data"):
+            mime_type = result.get("media_metadata", {}).get("mime_type", "image/webp")
+            ext = mime_type.split("/")[-1]  # "webp", "png", "mp4" 등
+            filename = f"{uuid.uuid4().hex}.{ext}"
+            filepath = os.path.join(MEDIA_OUTPUT_DIR, filename)
+
+            with open(filepath, "wb") as f:
+                f.write(base64.b64decode(result["media_data"]))
+
             media_result = {
                 "type": result.get("media_type", "image"),
-                "data": result.get("media_data", ""),       # base64
-                "mime_type": result.get("media_metadata", {}).get("mime_type", "image/png"),
+                "url": f"/v1/media/{filename}",
+                "mime_type": mime_type,
                 "metadata": result.get("media_metadata", {}),
             }
 
@@ -162,6 +183,7 @@ async def generate_ai_feed(request: AIGenerateRequest):
                     "media_provider": result.get("media_provider_name", MEDIA_PROVIDER),
                     "state_analysis": state_analysis,
                     "selected_ad": strategy.get("selected_product", ""),
+                    "ad_image_url": ad_image_url,
                     "combination_method": strategy.get("combination_method", ""),
                     "using_mock": USE_MOCK_VECTOR_DB,
                 },
@@ -173,6 +195,15 @@ async def generate_ai_feed(request: AIGenerateRequest):
     except Exception as e:
         logger.error(f"AI generation failed: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"AI 생성 실패: {str(e)}")
+
+
+@app.get("/v1/media/{filename}")
+async def download_media(filename: str):
+    """생성된 미디어 파일 다운로드"""
+    filepath = os.path.join(MEDIA_OUTPUT_DIR, filename)
+    if not os.path.isfile(filepath):
+        raise HTTPException(status_code=404, detail="미디어 파일을 찾을 수 없습니다.")
+    return FileResponse(filepath)
 
 
 @app.get("/v1/user/{user_id}")

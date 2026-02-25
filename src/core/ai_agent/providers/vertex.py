@@ -6,7 +6,7 @@ Vertex AI (Gemini) 프로바이더
     AI_PROVIDER=vertex
     GCP_PROJECT_ID=your-project-id
     GCP_REGION=us-central1
-    VERTEX_AI_MODEL=gemini-1.5-flash
+    VERTEX_AI_MODEL=gemini-2.0-flash
 
 인증:
     gcloud auth application-default login
@@ -27,7 +27,7 @@ class VertexProvider(ModelProvider):
     def __init__(self):
         self.project_id = os.getenv("GCP_PROJECT_ID", "")
         self.region = os.getenv("GCP_REGION", os.getenv("VERTEX_AI_LOCATION", "us-central1"))
-        self.model_name = os.getenv("VERTEX_AI_MODEL", "gemini-1.5-flash")
+        self.model_name = os.getenv("VERTEX_AI_MODEL", "gemini-2.0-flash")
         self.temperature = float(os.getenv("VERTEX_AI_TEMPERATURE", "0.7"))
         self.max_tokens = int(os.getenv("VERTEX_AI_MAX_TOKENS", "2048"))
         self._model = None
