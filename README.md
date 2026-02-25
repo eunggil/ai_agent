@@ -73,11 +73,11 @@
 ### Backend
 - **언어**: Python 3.11+
 - **프레임워크**: FastAPI
-- **AI/ML**: Vertex AI (Gemini, Imagen), LangChain
+- **AI/ML**: Vertex AI (Gemini 2.0 Flash, Imagen 4, text-embedding-004), LangGraph
 
 ### Data Layer
-- **데이터베이스**: Cloud SQL (PostgreSQL + pgvector)
-- **벡터 검색**: pgvector (초기), Vertex AI Vector Search (확장)
+- **데이터베이스**: PostgreSQL + pgvector (로컬 개발), Cloud SQL (프로덕션)
+- **벡터 검색**: pgvector 768차원 HNSW 인덱스 (초기), Vertex AI Vector Search (확장)
 - **캐시**: Cloud Firestore, Redis
 - **메시징**: Cloud Pub/Sub
 - **분석**: BigQuery
@@ -103,18 +103,26 @@ git clone https://github.com/your-org/addeep-ai-agent.git
 cd addeep-ai-agent
 
 # 2. 환경 변수 설정
-cp .env.docker .env
-# .env 파일 편집 (GCP_PROJECT_ID 등)
+cp .env.example .env
+# .env 파일 편집 (GCP_PROJECT_ID, GOOGLE_APPLICATION_CREDENTIALS 등)
 
 # 3. Vertex AI 인증
 gcloud auth application-default login
 
-# 4. Docker Compose로 시작 (Mock DB 사용)
+# 4. Docker Compose로 시작
 docker-compose up -d
 
-# 5. API 테스트
+# 5. 로그 확인 (첫 실행 시 데모 데이터 자동 시드, 약 3-5분 소요)
+docker-compose logs -f ai-agent
+
+# 6. API 테스트
 curl http://localhost:8000/health
 ```
+
+> **첫 실행 시 자동 처리:**
+> - PostgreSQL DB 초기화 (테이블, pgvector 확장)
+> - 데모 데이터 자동 시드 (사용자 15명, 상품/광고/콘텐츠 각 100개)
+> - 벡터 임베딩 생성 (Vertex AI text-embedding-004, 768차원)
 
 **자세한 내용:** [Docker 개발 & 배포 가이드](docs/DOCKER_DEPLOYMENT.md)
 
@@ -149,13 +157,16 @@ curl http://localhost:8000/health
 # 기본 피드 조회
 curl "http://localhost:8000/v1/feed?user_id=user_001"
 
-# AI 피드 생성 요청
+# AI 피드 생성 요청 (이미지 자동 생성 포함)
 curl -X POST http://localhost:8000/v1/ai/generate-feed \
   -H "Content-Type: application/json" \
   -d '{
     "user_id": "user_001",
     "prompt": "오늘 기분 좋은 패션 아이템 추천해줘"
   }'
+
+# 생성된 미디어 파일 다운로드
+curl http://localhost:8000/v1/media/<filename>.webp --output image.webp
 ```
 
 ## 문서

@@ -248,262 +248,124 @@ OPTIONS(
 
 ## 2. Vector DB 스키마
 
-### 2.1 사용자 장기 벡터 (PostgreSQL)
+> **현재 구현:** 로컬 개발 환경은 PostgreSQL + pgvector를 사용합니다.
+> 임베딩 모델: Vertex AI **text-embedding-004** (768차원)
+> 벡터 인덱스: **HNSW** (cosine similarity)
+
+### 2.1 사용자 테이블 (PostgreSQL)
 
 ```sql
-CREATE TABLE user_long_term_vectors (
-  -- 기본 정보
-  user_id VARCHAR(255) PRIMARY KEY,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  version INT NOT NULL DEFAULT 1,
-
-  -- 벡터
-  vector vector(768) NOT NULL,  -- pgvector
-
-  -- 메타데이터
-  metadata JSONB NOT NULL DEFAULT '{}',
-  /*
-  metadata 구조:
-  {
-    "profile_summary": "30대 여성, 건강/웰빙 관심...",
-    "top_categories": ["wellness", "travel", "food"],
-    "avg_viewing_time": "evening",
-    "content_length_pref": "medium",
-    "engagement_style": "passive",
-    "confidence": 0.87,
-    "data_window_days": 90,
-    "source_events_count": 1543
-  }
-  */
-
-  -- 데이터 출처
-  data_window_start DATE,
-  data_window_end DATE,
-  source_events_count INT,
-
-  -- 품질 메트릭
-  confidence_score FLOAT,
-  drift_from_previous FLOAT
+CREATE TABLE users (
+  user_id       VARCHAR(50) PRIMARY KEY,
+  name          VARCHAR(100),
+  age           INT,
+  gender        VARCHAR(10),
+  country       VARCHAR(10),
+  interests     TEXT[],           -- 관심사 배열
+  tier          VARCHAR(20),      -- free | standard | premium
+  embedding     vector(768),      -- text-embedding-004 768차원
+  created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 인덱스
-CREATE INDEX idx_user_long_term_vectors_ivfflat
-ON user_long_term_vectors
-USING ivfflat (vector vector_cosine_ops)
-WITH (lists = 100);
-
-CREATE INDEX idx_user_long_term_updated
-ON user_long_term_vectors(updated_at);
+-- HNSW 인덱스 (cosine similarity)
+CREATE INDEX idx_users_embedding
+ON users
+USING hnsw (embedding vector_cosine_ops)
+WITH (m = 16, ef_construction = 64);
 ```
 
-### 2.2 사용자 단기 벡터 (PostgreSQL)
+**데모 데이터:** 15명 (seed_demo_data.py로 자동 시드)
+
+### 2.2 캠페인 테이블 (광고 캠페인)
 
 ```sql
-CREATE TABLE user_short_term_vectors (
-  -- 기본 정보
-  user_id VARCHAR(255) PRIMARY KEY,
-  session_id VARCHAR(255),
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-
-  -- 벡터
-  vector vector(768) NOT NULL,
-
-  -- 메타데이터
-  metadata JSONB NOT NULL DEFAULT '{}',
-  /*
-  metadata 구조:
-  {
-    "intent_summary": "저녁 휴식 중, 가벼운 엔터테인먼트 원함",
-    "current_mood": "relaxed",
-    "recent_views": ["wellness", "comedy", "travel"],
-    "time_of_day": "evening",
-    "device": "mobile",
-    "location": "home",
-    "confidence": 0.92
-  }
-  */
-
-  -- TTL
-  ttl TIMESTAMP NOT NULL,  -- 7일 후 자동 삭제
-
-  -- 세션 정보
-  device_type VARCHAR(50),
-  platform VARCHAR(50),
-  location_country VARCHAR(10),
-
-  -- 데이터 출처
-  recent_events_count INT,
-  data_window_hours INT DEFAULT 24
+CREATE TABLE campaigns (
+  campaign_id    VARCHAR(50) PRIMARY KEY,
+  title          VARCHAR(200),
+  description    TEXT,
+  category       VARCHAR(50),     -- fashion | beauty | health | food | ...
+  target_age_min INT,
+  target_age_max INT,
+  target_gender  VARCHAR(10),
+  bid_amount     DECIMAL(6,2),
+  status         VARCHAR(20) DEFAULT 'active',
+  image_url      TEXT,            -- 샘플 이미지 URL (picsum.photos 등)
+  embedding      vector(768),     -- text-embedding-004 768차원
+  created_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 인덱스
-CREATE INDEX idx_user_short_term_vectors_ivfflat
-ON user_short_term_vectors
-USING ivfflat (vector vector_cosine_ops)
-WITH (lists = 100);
-
-CREATE INDEX idx_user_short_term_ttl
-ON user_short_term_vectors(ttl);
-
--- TTL 자동 삭제 (주기적 실행)
-CREATE OR REPLACE FUNCTION cleanup_expired_short_term_vectors()
-RETURNS void AS $$
-BEGIN
-  DELETE FROM user_short_term_vectors WHERE ttl < NOW();
-END;
-$$ LANGUAGE plpgsql;
+-- HNSW 인덱스
+CREATE INDEX idx_campaigns_embedding
+ON campaigns
+USING hnsw (embedding vector_cosine_ops)
+WITH (m = 16, ef_construction = 64);
 ```
 
-### 2.3 콘텐츠 벡터 (PostgreSQL)
+**데모 데이터:** 100개 (8개 카테고리, seed_demo_data.py로 자동 시드)
+
+### 2.3 상품 테이블
 
 ```sql
-CREATE TABLE content_vectors (
-  -- 기본 정보
-  content_id VARCHAR(255) PRIMARY KEY,
-  content_type VARCHAR(50) NOT NULL,  -- ugc, brand, editorial, ai_generated
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-
-  -- 벡터
-  vector vector(768) NOT NULL,
-
-  -- 메타데이터
-  metadata JSONB NOT NULL DEFAULT '{}',
-  /*
-  metadata 구조:
-  {
-    "title": "...",
-    "description": "...",
-    "category": "wellness",
-    "subcategory": "meditation",
-    "keywords": ["mindfulness", "breathing"],
-    "tone": "calm",
-    "visual_style": "minimalist",
-    "duration_seconds": 75,
-    "language": "en"
-  }
-  */
-
-  -- 성과 지표
-  popularity_score FLOAT DEFAULT 0.0,
-  engagement_rate FLOAT DEFAULT 0.0,
-  view_count BIGINT DEFAULT 0,
-  like_count BIGINT DEFAULT 0,
-  share_count BIGINT DEFAULT 0,
-
-  -- 품질
-  quality_score FLOAT,
-  safety_score FLOAT,
-
-  -- 상태
-  status VARCHAR(20) DEFAULT 'active',  -- active, archived, removed
-  published_at TIMESTAMP
+CREATE TABLE products (
+  product_id   VARCHAR(50) PRIMARY KEY,
+  name         VARCHAR(200),
+  description  TEXT,
+  category     VARCHAR(50),
+  price        DECIMAL(10,2),
+  brand        VARCHAR(100),
+  image_url    TEXT,            -- 샘플 이미지 URL
+  embedding    vector(768),
+  created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 인덱스
-CREATE INDEX idx_content_vectors_ivfflat
-ON content_vectors
-USING ivfflat (vector vector_cosine_ops)
-WITH (lists = 200);
-
-CREATE INDEX idx_content_type
-ON content_vectors(content_type, status);
-
-CREATE INDEX idx_content_popularity
-ON content_vectors(popularity_score DESC);
+-- HNSW 인덱스
+CREATE INDEX idx_products_embedding
+ON products
+USING hnsw (embedding vector_cosine_ops)
+WITH (m = 16, ef_construction = 64);
 ```
 
-### 2.4 광고 벡터 (PostgreSQL)
+**데모 데이터:** 100개 (8개 카테고리, seed_demo_data.py로 자동 시드)
+
+### 2.4 콘텐츠 테이블
 
 ```sql
-CREATE TABLE ad_vectors (
-  -- 기본 정보
-  ad_id VARCHAR(255) PRIMARY KEY,
-  campaign_id VARCHAR(255) NOT NULL,
-  advertiser_id VARCHAR(255),
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-
-  -- 벡터
-  vector vector(768) NOT NULL,
-
-  -- 메타데이터
-  metadata JSONB NOT NULL DEFAULT '{}',
-  /*
-  metadata 구조:
-  {
-    "product_name": "...",
-    "product_category": "health_supplement",
-    "brand_tone": "scientific",
-    "visual_style": "modern",
-    "keywords": ["immunity", "vitamin"],
-    "target_age_min": 25,
-    "target_age_max": 40,
-    "target_gender": "all",
-    "target_interests": ["health", "wellness"]
-  }
-  */
-
-  -- 타겟팅 룰
-  targeting_rules JSONB NOT NULL DEFAULT '{}',
-  /*
-  targeting_rules 구조:
-  {
-    "age_range": [25, 40],
-    "genders": ["all"],
-    "countries": ["US", "KR"],
-    "interests": ["health", "wellness"],
-    "exclude_recent_purchasers": true,
-    "time_targeting": {
-      "days": ["mon", "tue", "wed", "thu", "fri"],
-      "hours": [18, 19, 20, 21, 22]
-    }
-  }
-  */
-
-  -- 예산 및 입찰
-  daily_budget DECIMAL(10, 2),
-  budget_remaining DECIMAL(10, 2),
-  bid_amount DECIMAL(6, 2),
-  bid_type VARCHAR(20),  -- cpm, cpc, cpa
-
-  -- 성과
-  performance_score FLOAT DEFAULT 0.5,
-  ctr FLOAT DEFAULT 0.0,
-  cvr FLOAT DEFAULT 0.0,
-  total_impressions BIGINT DEFAULT 0,
-  total_clicks BIGINT DEFAULT 0,
-  total_conversions BIGINT DEFAULT 0,
-  total_revenue DECIMAL(12, 2) DEFAULT 0,
-
-  -- 스케줄
-  start_date DATE,
-  end_date DATE,
-  status VARCHAR(20) DEFAULT 'active',  -- active, paused, completed, archived
-
-  -- 크리에이티브
-  creative_urls JSONB,  -- 이미지, 비디오 URL 배열
-  landing_url TEXT
+CREATE TABLE contents (
+  content_id   VARCHAR(50) PRIMARY KEY,
+  title        VARCHAR(200),
+  body         TEXT,
+  category     VARCHAR(50),
+  content_type VARCHAR(50),     -- article | video | image
+  embedding    vector(768),
+  created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 인덱스
-CREATE INDEX idx_ad_vectors_ivfflat
-ON ad_vectors
-USING ivfflat (vector vector_cosine_ops)
-WITH (lists = 100);
-
-CREATE INDEX idx_ad_active_budget
-ON ad_vectors(status, budget_remaining)
-WHERE status = 'active' AND budget_remaining > 0;
-
-CREATE INDEX idx_ad_campaign
-ON ad_vectors(campaign_id);
-
-CREATE INDEX idx_ad_performance
-ON ad_vectors(performance_score DESC);
+-- HNSW 인덱스
+CREATE INDEX idx_contents_embedding
+ON contents
+USING hnsw (embedding vector_cosine_ops)
+WITH (m = 16, ef_construction = 64);
 ```
+
+**데모 데이터:** 100개 (seed_demo_data.py로 자동 시드)
+
+### 2.5 벡터 검색 방식
+
+광고 후보 검색 시 pgvector cosine similarity + bid 보너스 결합:
+
+```sql
+-- 코사인 유사도 기반 Top-K 광고 후보 검색
+SELECT
+  campaign_id, title, category, bid_amount, image_url,
+  1 - (embedding <=> %s::vector) AS similarity
+FROM campaigns
+WHERE status = 'active'
+ORDER BY (1 - (embedding <=> %s::vector)) * 0.7 + (bid_amount / 10.0) * 0.3 DESC
+LIMIT 10;
+```
+
+- embedding 없는 경우 키워드 기반 점수로 폴백
+- 최종 스코어 = 코사인 유사도(70%) + 입찰금액 보너스(30%)
 
 ---
 
@@ -1021,5 +883,5 @@ Daily 2AM UTC:
 
 ---
 
-**문서 버전:** 1.0
-**최종 수정일:** 2026-02-24
+**문서 버전:** 1.1
+**최종 수정일:** 2026-02-25

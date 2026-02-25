@@ -25,30 +25,38 @@ docker-compose --version # Docker Compose version 2.0+
 gcloud --version
 ```
 
-### 1.2 빠른 시작 (Mock 데이터 사용)
+### 1.2 빠른 시작 (권장)
 
 **Step 1: 환경 변수 설정**
 
 ```bash
 # .env 파일 생성
-cp .env.docker .env
+cp .env.example .env
 
 # .env 파일 편집
 nano .env
 ```
 
-`.env` 파일 예시:
+`.env` 필수 설정:
 ```bash
 # GCP 설정
 GCP_PROJECT_ID=your-gcp-project-id
 GCP_REGION=us-central1
 
-# Mock DB 사용 (AI Agent 개발에 집중)
-USE_MOCK_VECTOR_DB=true
-USE_MOCK_GRAPH_DB=true
-
 # Vertex AI 인증
+# gcloud auth application-default login 후 생성된 파일 경로
 GOOGLE_APPLICATION_CREDENTIALS=~/.config/gcloud/application_default_credentials.json
+
+# AI 모델
+VERTEX_AI_MODEL=gemini-2.0-flash
+VERTEX_AI_EMBEDDING_MODEL=text-embedding-004
+
+# DB 모드: false = PostgreSQL(권장), true = 인메모리 Mock
+USE_MOCK_VECTOR_DB=false
+USE_MOCK_GRAPH_DB=false
+
+# 이미지 생성 (vertex_imagen = Vertex AI Imagen 사용)
+MEDIA_PROVIDER=vertex_imagen
 ```
 
 **Step 2: Vertex AI 인증**
@@ -68,12 +76,21 @@ gcloud config set project your-gcp-project-id
 # 서비스 빌드 및 시작
 docker-compose up --build
 
-# 백그라운드 실행
+# 또는 백그라운드 실행
 docker-compose up -d
 
-# 로그 확인
+# 로그 확인 (첫 실행 시 데모 데이터 시드 진행 상황 확인)
 docker-compose logs -f ai-agent
 ```
+
+> **첫 실행 시 자동 처리 (약 3-5분):**
+> 1. PostgreSQL 준비 대기
+> 2. DB에 캠페인이 10개 미만이면 `scripts/seed_demo_data.py` 실행
+>    - 사용자 15명, 상품 100개, 광고 캠페인 100개, 콘텐츠 100개 생성
+>    - Vertex AI text-embedding-004로 768차원 벡터 임베딩 일괄 생성
+> 3. FastAPI 서버 시작
+>
+> 이후 재시작에서는 데모 데이터가 이미 있으므로 시드 단계를 건너뜁니다.
 
 **Step 4: API 테스트**
 
@@ -84,38 +101,49 @@ curl http://localhost:8000/health
 # 기본 피드 조회
 curl "http://localhost:8000/v1/feed?user_id=user_001"
 
-# AI 피드 생성
+# AI 피드 생성 (이미지 자동 생성 포함)
 curl -X POST http://localhost:8000/v1/ai/generate-feed \
   -H "Content-Type: application/json" \
   -d '{
     "user_id": "user_001",
     "prompt": "오늘 기분 좋은 패션 아이템 추천해줘"
   }'
+
+# 생성된 이미지 다운로드
+# 응답 JSON의 generated_image_url 필드에서 파일명 확인 후:
+curl http://localhost:8000/v1/media/<filename>.webp --output image.webp
 ```
 
-### 1.3 실제 DB 사용 (PostgreSQL + pgvector)
+### 1.3 Mock 데이터 모드 (빠른 테스트)
 
-Mock에서 실제 DB로 전환하려면:
-
-**Step 1: 환경 변수 수정**
+Vertex AI 인증 없이 빠르게 테스트하려면:
 
 ```bash
 # .env 파일 수정
-USE_MOCK_VECTOR_DB=false
-USE_MOCK_GRAPH_DB=false
+USE_MOCK_VECTOR_DB=true
+USE_MOCK_GRAPH_DB=true
+MEDIA_PROVIDER=none
 ```
 
-**Step 2: Docker Compose 재시작**
+Mock 모드에서는 DB 없이 인메모리 데이터를 사용하며 이미지 생성이 비활성화됩니다.
 
-```bash
-docker-compose down
-docker-compose up -d
+### 1.4 DB 직접 접속 (DBeaver 등 외부 클라이언트)
+
+PostgreSQL은 호스트 포트 **5433**으로 노출됩니다 (내부 포트 충돌 방지).
+
+```
+Host: localhost
+Port: 5433
+Database: ai_agent
+Username: postgres
+Password: postgres
 ```
 
-**Step 3: DB 연결 확인**
+> **참고:** 로컬에서 cloud-sql-proxy 등 다른 PostgreSQL 프로세스가 포트 5432를 점유하는 경우에도 충돌 없이 접속 가능합니다.
+
+컨테이너 내부에서 직접 접속:
 
 ```bash
-# PostgreSQL 접속
 docker exec -it ai-agent-postgres psql -U postgres -d ai_agent
 
 # 테이블 확인
@@ -123,9 +151,14 @@ docker exec -it ai-agent-postgres psql -U postgres -d ai_agent
 
 # Vector 확장 확인
 SELECT * FROM pg_extension WHERE extname = 'vector';
+
+# 데모 데이터 확인
+SELECT COUNT(*) FROM users;
+SELECT COUNT(*) FROM campaigns;
+SELECT COUNT(*) FROM products;
 ```
 
-**Step 4: pgAdmin으로 관리 (선택사항)**
+**pgAdmin으로 관리 (선택사항)**
 
 ```bash
 # pgAdmin 시작
@@ -139,13 +172,13 @@ open http://localhost:5050
 # Password: admin
 
 # PostgreSQL 서버 추가
-# Host: postgres
+# Host: postgres (Docker 내부 네트워크 호스트명)
 # Port: 5432
 # Username: postgres
-# Password: postgres (from .env)
+# Password: postgres
 ```
 
-### 1.4 Docker 구조
+### 1.5 Docker 구조
 
 ```
 ┌─────────────────────────────────────────────┐
@@ -160,12 +193,26 @@ open http://localhost:5050
 │    │         │          │                  │
 │  ┌─▼────┐  ┌─▼─────┐  ┌─▼──────┐         │
 │  │Postgres│ │ Redis │ │pgAdmin │         │
-│  │:5432   │ │ :6379 │ │ :5050  │         │
-│  └────────┘ └───────┘ └────────┘         │
+│  │:5433   │ │ :6379 │ │ :5050  │         │
+│  (host)   │ └───────┘ └────────┘         │
+│  └────────┘                               │
 └─────────────────────────────────────────────┘
 ```
 
-### 1.5 개발 워크플로우
+**볼륨 마운트:**
+
+| 볼륨 | 설명 |
+|------|------|
+| `./src:/app/src` | 소스코드 (hot reload) |
+| `./tests:/app/tests` | 테스트 코드 |
+| `./scripts:/app/scripts` | 유틸리티 스크립트 |
+| `./generated_media:/app/generated_media` | 생성된 이미지/영상 (로컬 바인딩) |
+| `postgres_data` | PostgreSQL 데이터 (named volume) |
+| `redis_data` | Redis 데이터 (named volume) |
+
+> `generated_media/`는 Docker 재시작 후에도 로컬 디렉토리에 유지됩니다.
+
+### 1.6 개발 워크플로우
 
 **코드 변경 시 (Hot Reload)**
 
@@ -212,13 +259,36 @@ docker-compose logs -f ai-agent
 docker-compose logs --tail=100 ai-agent
 ```
 
-### 1.6 유용한 명령어
+### 1.7 유틸리티 스크립트
+
+**데모 데이터 수동 시드 (필요 시)**
+
+```bash
+# 컨테이너 내부에서 실행
+docker-compose exec ai-agent python scripts/seed_demo_data.py
+```
+
+**벡터 임베딩 재생성**
+
+```bash
+docker-compose exec ai-agent python scripts/generate_embeddings.py
+```
+
+**DB 초기화 (데모 데이터 포함 전체 삭제)**
+
+```bash
+# 볼륨까지 삭제 후 재시작하면 자동으로 재시드됨
+docker-compose down -v
+docker-compose up -d
+```
+
+### 1.8 유용한 명령어
 
 ```bash
 # 전체 서비스 중지
 docker-compose down
 
-# 볼륨까지 삭제 (DB 데이터 초기화)
+# 볼륨까지 삭제 (DB 데이터 초기화 - 다음 시작 시 데모 데이터 재시드됨)
 docker-compose down -v
 
 # 특정 서비스만 재시작
@@ -610,9 +680,36 @@ docker network inspect ai-agent_ai-agent-network
 # PostgreSQL 컨테이너 상태 확인
 docker-compose ps postgres
 
-# 직접 연결 테스트
+# 직접 연결 테스트 (컨테이너 내부)
 docker-compose exec ai-agent \
   psql -h postgres -U postgres -d ai_agent
+```
+
+**문제: 외부 클라이언트(DBeaver 등)에서 접속 실패**
+
+PostgreSQL은 호스트 포트 **5433**으로 노출됩니다 (5432 충돌 방지).
+
+```
+# DBeaver 설정
+Host: localhost
+Port: 5433      ← 5432가 아닌 5433
+Database: ai_agent
+Username: postgres
+Password: postgres
+```
+
+cloud-sql-proxy 등이 5432를 점유하는 경우에도 5433으로 충돌 없이 접속 가능합니다.
+
+**문제: "password authentication failed for user postgres"**
+
+pg_hba.conf가 올바르게 마운트되었는지 확인하세요:
+
+```bash
+# PostgreSQL 컨테이너에서 pg_hba.conf 위치 확인
+docker-compose exec postgres psql -U postgres -c "SHOW hba_file;"
+
+# 외부 접속 허용 여부 확인 (md5 인증)
+docker-compose exec postgres cat /etc/postgresql/pg_hba.conf
 ```
 
 **문제: "pgvector extension not found"**
@@ -625,6 +722,19 @@ docker-compose exec postgres psql -U postgres -d ai_agent -c "CREATE EXTENSION I
 docker-compose exec postgres psql -U postgres -d ai_agent -c "SELECT * FROM pg_extension WHERE extname='vector';"
 ```
 
+**문제: 임베딩 생성 오류 (dimension mismatch)**
+
+DB 컬럼과 임베딩 모델의 차원이 일치하는지 확인하세요:
+
+```bash
+# 현재 벡터 컬럼 차원 확인
+docker-compose exec postgres psql -U postgres -d ai_agent \
+  -c "SELECT attname, atttypmod FROM pg_attribute WHERE attrelid='campaigns'::regclass AND attname='embedding';"
+# atttypmod = 772 → 실제 차원 = 772 - 4 = 768차원 (정상)
+```
+
+현재 구현은 **768차원** (text-embedding-004) 사용합니다.
+
 ---
 
 ## 4. 부록
@@ -633,9 +743,12 @@ docker-compose exec postgres psql -U postgres -d ai_agent -c "SELECT * FROM pg_e
 
 | 항목 | 로컬 (Mock) | 로컬 (PostgreSQL) | Staging | Production |
 |------|-------------|-------------------|---------|------------|
-| Vector DB | Mock (In-memory) | PostgreSQL + pgvector | Cloud SQL + pgvector | Vertex AI Vector Search |
+| Vector DB | Mock (In-memory) | PostgreSQL + pgvector (768차원 HNSW) | Cloud SQL + pgvector | Vertex AI Vector Search |
 | Graph DB | Mock (In-memory) | PostgreSQL | Neo4j | Neo4j + Redis |
-| LLM | Vertex AI | Vertex AI | Vertex AI | Vertex AI |
+| LLM | Vertex AI Gemini 2.0 Flash | Vertex AI Gemini 2.0 Flash | Vertex AI | Vertex AI |
+| 이미지 생성 | 없음 (none) | Vertex AI Imagen 4 | Vertex AI Imagen 4 | Vertex AI Imagen 4 |
+| 임베딩 | N/A | text-embedding-004 (768차원) | text-embedding-004 | text-embedding-004 |
+| PostgreSQL 포트 | N/A | 5433 (호스트) | Cloud SQL | Cloud SQL |
 | 인스턴스 | 1 (Docker) | 1 (Docker) | 1-3 (Cloud Run) | 1-10 (Cloud Run) |
 | 메모리 | 2GB | 4GB | 4GB | 8GB |
 
@@ -684,6 +797,6 @@ docker-compose exec postgres psql -U postgres -d ai_agent -c "SELECT * FROM pg_e
 
 ---
 
-**문서 버전:** 1.0
-**최종 업데이트:** 2026-02-24
+**문서 버전:** 1.1
+**최종 업데이트:** 2026-02-25
 **담당자:** AI Agent DevOps Team
