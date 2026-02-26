@@ -11,7 +11,7 @@ services:
       - ENVIRONMENT=development
       - GOOGLE_APPLICATION_CREDENTIALS=/app/credentials.json
       - GCP_PROJECT_ID=${GCP_PROJECT_ID}
-      - GCP_REGION=${GCP_REGION:-us-central1}
+      - GCP_REGION=${GCP_REGION:-asia-northeast3}
       # AI 프로바이더 설정 (vertex | local)
       - AI_PROVIDER=${AI_PROVIDER:-vertex}
       # 옵션 2 (로컬 LLM): AI_PROVIDER=local 일 때 사용
@@ -19,7 +19,7 @@ services:
       - LOCAL_MODEL=${LOCAL_MODEL:-llama3}
       # Vertex AI 모델 설정 (AI_PROVIDER=vertex 일 때)
       - VERTEX_AI_MODEL=${VERTEX_AI_MODEL:-gemini-2.0-flash}
-      - VERTEX_AI_LOCATION=${VERTEX_AI_LOCATION:-us-central1}
+      - VERTEX_AI_LOCATION=${VERTEX_AI_LOCATION:-asia-northeast3}
       - USE_MOCK_GRAPH_DB=${USE_MOCK_GRAPH_DB:-true}
       # PostgreSQL 연결
       - POSTGRES_HOST=postgres
@@ -38,6 +38,13 @@ services:
       - DIFFUSERS_DEVICE=${DIFFUSERS_DEVICE:-auto}
       - MEDIA_OUTPUT_DIR=/app/generated_media
       - REPLICATE_API_TOKEN=${REPLICATE_API_TOKEN:-}
+      # Vertex AI Imagen / Veo 설정
+      - VERTEX_AI_IMAGEN_MODEL=${VERTEX_AI_IMAGEN_MODEL:-imagen-4.0-fast-generate-001}
+      - VERTEX_VEO_MODEL=${VERTEX_VEO_MODEL:-veo-3.1-fast-generate-001}
+      - VERTEX_VEO_GCS_BUCKET=${VERTEX_VEO_GCS_BUCKET:-}
+      - VEO_TIMEOUT_SECONDS=${VEO_TIMEOUT_SECONDS:-600}
+      # Imagen 4 / Veo는 us-central1 전용 (GCP_REGION과 별도 관리)
+      - VERTEX_AI_MEDIA_LOCATION=${VERTEX_AI_MEDIA_LOCATION:-us-central1}
     volumes:
       # 코드 hot reload를 위한 볼륨 마운트
       - ./src:/app/src

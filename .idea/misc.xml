@@ -3,7 +3,7 @@
   <component name="Black">
     <option name="sdkName" value="Python 3.12 virtualenv at ~/workspace/open_ai/auto_ai_shorts/venv312" />
   </component>
-  <component name="ProjectRootManager" version="2" project-jdk-name="Python 3.12 virtualenv at ~/workspace/open_ai/auto_ai_shorts/venv312" project-jdk-type="Python SDK" />
+  <component name="ProjectRootManager" version="2" project-jdk-name="Python 3.9" project-jdk-type="Python SDK" />
   <component name="accountSettings">
     <option name="activeRegion" value="us-east-1" />
     <option name="recentlyUsedRegions">

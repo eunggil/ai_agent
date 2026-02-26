@@ -1,0 +1,122 @@
+이미지 생성 (10개)
+
+  1. 패션 - 데이트 립 메이크업
+  curl -X POST http://localhost:8000/v1/ai/generate-feed \
+    -H "Content-Type: application/json" \
+    -d '{
+      "user_id": "user_001",
+      "prompt": "오늘 데이트 룩에 어울리는 립 메이크업 추천해줘",
+      "media_type": "image"
+    }'
+
+  2. 뷰티 - 봄 스킨케어 루틴
+  curl -X POST http://localhost:8000/v1/ai/generate-feed \
+    -H "Content-Type: application/json" \
+    -d '{
+      "user_id": "user_001",
+      "prompt": "환절기 건조한 피부를 위한 수분 스킨케어 루틴",
+      "media_type": "image"
+    }'
+
+  3. 패션 - 봄 캐주얼 코디
+  curl -X POST http://localhost:8000/v1/ai/generate-feed \
+    -H "Content-Type: application/json" \
+    -d '{
+      "user_id": "user_001",
+      "prompt": "봄 캐주얼 데일리 오버핏 코디 보여줘",
+      "media_type": "image"
+    }'
+
+  4. 스포츠 - 러닝화 추천
+  curl -X POST http://localhost:8000/v1/ai/generate-feed \
+    -H "Content-Type: application/json" \
+    -d '{
+      "user_id": "user_002",
+      "prompt": "주말 아침 러닝용 쿠션감 좋은 신발 추천해줘",
+      "media_type": "image"
+    }'
+
+  5. 헬스 - 운동 후 영양 간식
+  curl -X POST http://localhost:8000/v1/ai/generate-feed \
+    -H "Content-Type: application/json" \
+    -d '{
+      "user_id": "user_002",
+      "prompt": "헬스장 운동 후 먹기 좋은 단백질 간식 추천",
+      "media_type": "image"
+    }'
+
+  6. 테크 - 재택근무 집중 아이템
+  curl -X POST http://localhost:8000/v1/ai/generate-feed \
+    -H "Content-Type: application/json" \
+    -d '{
+      "user_id": "user_002",
+      "prompt": "재택근무 집중력 높이는 노이즈캔슬링 헤드폰 추천",
+      "media_type": "image"
+    }'
+
+  7. 음식 - 카페 디저트
+  curl -X POST http://localhost:8000/v1/ai/generate-feed \
+    -H "Content-Type: application/json" \
+    -d '{
+      "user_id": "user_003",
+      "prompt": "오후 카페 디저트 타임, 달콤한 간식 추천해줘",
+      "media_type": "image"
+    }'
+
+  8. 여행 - 감성 여행 소품
+  curl -X POST http://localhost:8000/v1/ai/generate-feed \
+    -H "Content-Type: application/json" \
+    -d '{
+      "user_id": "user_003",
+      "prompt": "제주 여행할 때 챙기면 좋은 감성 소품과 스낵",
+      "media_type": "image"
+    }'
+
+  9. 사진 - 여행 카메라 악세서리
+  curl -X POST http://localhost:8000/v1/ai/generate-feed \
+    -H "Content-Type: application/json" \
+    -d '{
+      "user_id": "user_003",
+      "prompt": "여행 사진 감성 있게 찍기 위한 카메라 악세서리",
+      "media_type": "image"
+    }'
+
+  10. 라이프스타일 - 출퇴근 음악
+  curl -X POST http://localhost:8000/v1/ai/generate-feed \
+    -H "Content-Type: application/json" \
+    -d '{
+      "user_id": "user_002",
+      "prompt": "지하철 출퇴근에 음악 집중해서 듣고 싶어, 헤드폰 추천",
+      "media_type": "image"
+    }'
+
+  ---
+  영상 생성 (3개)
+
+  1. 뷰티 - 립스틱 발색 영상
+  curl -X POST http://localhost:8000/v1/ai/generate-feed \
+    -H "Content-Type: application/json" \
+    -d '{
+      "user_id": "user_001",
+      "prompt": "누드 베이지 립스틱 발색 과정을 보여주는 뷰티 영상",
+      "media_type": "video"
+    }'
+
+  2. 스포츠 - 러닝 모션 영상
+  curl -X POST http://localhost:8000/v1/ai/generate-feed \
+    -H "Content-Type: application/json" \
+    -d '{
+      "user_id": "user_002",
+      "prompt": "공원에서 에어맥스 신고 러닝하는 역동적인 영상",
+      "media_type": "video"
+    }'
+
+  3. 여행 - 감성 여행 브이로그
+  curl -X POST http://localhost:8000/v1/ai/generate-feed \
+    -H "Content-Type: application/json" \
+    -d '{
+      "user_id": "user_003",
+      "prompt": "제주 카페에서 웨하스 먹으며 여유 즐기는 감성 브이로그",
+      "media_type": "video"
+    }'
+

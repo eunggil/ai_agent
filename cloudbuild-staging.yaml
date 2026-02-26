@@ -52,7 +52,7 @@ steps:
       - '--timeout'
       - '300s'
       - '--set-env-vars'
-      - 'ENVIRONMENT=staging,GCP_PROJECT_ID=${PROJECT_ID},GCP_REGION=${_REGION},USE_MOCK_GRAPH_DB=true'
+      - 'ENVIRONMENT=staging,GCP_PROJECT_ID=${PROJECT_ID},GCP_REGION=${_REGION},VERTEX_AI_MEDIA_LOCATION=us-central1'
       - '--set-secrets'
       - 'GOOGLE_APPLICATION_CREDENTIALS=vertex-ai-key:latest'
     waitFor: ['push-image']
@@ -79,7 +79,7 @@ options:
   logging: CLOUD_LOGGING_ONLY
 
 substitutions:
-  _REGION: 'us-central1'
+  _REGION: 'asia-northeast3'
   _REPOSITORY: 'ai-agent'
   _SERVICE_NAME: 'ai-agent-api'
 

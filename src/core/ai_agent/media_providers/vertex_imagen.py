@@ -42,7 +42,8 @@ class VertexImagenProvider(MediaProvider):
 
     def __init__(self):
         self.project_id = os.getenv("GCP_PROJECT_ID", "")
-        self.region = os.getenv("GCP_REGION", "us-central1")
+        # Imagen 4는 us-central1에서만 지원 → VERTEX_AI_MEDIA_LOCATION으로 관리
+        self.region = os.getenv("VERTEX_AI_MEDIA_LOCATION", "us-central1")
         self.model_name = os.getenv("VERTEX_AI_IMAGEN_MODEL", "imagen-4.0-generate-001")
         self.add_watermark = os.getenv("IMAGEN_WATERMARK", "false").lower() == "true"
 

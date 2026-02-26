@@ -51,7 +51,8 @@ class VertexVeoProvider(MediaProvider):
 
     def __init__(self):
         self.project_id = os.getenv("GCP_PROJECT_ID", "")
-        self.region = os.getenv("GCP_REGION", "us-central1")
+        # Veo 3.1은 us-central1에서만 지원 → VERTEX_AI_MEDIA_LOCATION으로 관리
+        self.region = os.getenv("VERTEX_AI_MEDIA_LOCATION", "us-central1")
         self.model_name = os.getenv("VERTEX_VEO_MODEL", "veo-3.1-fast-generate-001")
         self.gcs_bucket = os.getenv("VERTEX_VEO_GCS_BUCKET", "")
         self.timeout = int(os.getenv("VEO_TIMEOUT_SECONDS", "600"))  # 최대 10분
