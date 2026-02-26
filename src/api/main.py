@@ -150,22 +150,30 @@ async def generate_ai_feed(request: AIGenerateRequest):
         )
         ad_image_url = selected_ad.get("image_url", "")
 
-        # 미디어 결과 구성 — base64 → 파일 저장 후 URL 반환
+        # 미디어 결과 구성
+        # data_type="url"  → GCS public URL 직접 사용
+        # data_type="base64" → 로컬 파일 저장 후 /v1/media/{filename} 반환 (fallback)
         media_result = None
         if result.get("media_data"):
-            mime_type = result.get("media_metadata", {}).get("mime_type", "image/webp")
-            ext = mime_type.split("/")[-1]  # "webp", "png", "mp4" 등
-            filename = f"{uuid.uuid4().hex}.{ext}"
-            filepath = os.path.join(MEDIA_OUTPUT_DIR, filename)
+            media_metadata = result.get("media_metadata", {})
+            mime_type = media_metadata.get("mime_type", "image/webp")
+            data_type = media_metadata.get("data_type", "base64")
 
-            with open(filepath, "wb") as f:
-                f.write(base64.b64decode(result["media_data"]))
+            if data_type == "url":
+                media_url = result["media_data"]
+            else:
+                ext = mime_type.split("/")[-1]
+                filename = f"{uuid.uuid4().hex}.{ext}"
+                filepath = os.path.join(MEDIA_OUTPUT_DIR, filename)
+                with open(filepath, "wb") as f:
+                    f.write(base64.b64decode(result["media_data"]))
+                media_url = f"/v1/media/{filename}"
 
             media_result = {
                 "type": result.get("media_type", "image"),
-                "url": f"/v1/media/{filename}",
+                "url": media_url,
                 "mime_type": mime_type,
-                "metadata": result.get("media_metadata", {}),
+                "metadata": media_metadata,
             }
 
         return {

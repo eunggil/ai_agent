@@ -23,13 +23,13 @@ Imagen 4 제약사항:
     gcloud auth application-default login
     또는 GOOGLE_APPLICATION_CREDENTIALS 환경변수
 """
-import base64
 import io
 import logging
 import os
 import tempfile
+import uuid
 
-from .base import MediaProvider, MediaResult
+from .base import MediaProvider, MediaResult, upload_to_gcs_public
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +46,7 @@ class VertexImagenProvider(MediaProvider):
         self.region = os.getenv("VERTEX_AI_MEDIA_LOCATION", "us-central1")
         self.model_name = os.getenv("VERTEX_AI_IMAGEN_MODEL", "imagen-4.0-generate-001")
         self.add_watermark = os.getenv("IMAGEN_WATERMARK", "false").lower() == "true"
+        self.gcs_bucket = os.getenv("GCS_MEDIA_BUCKET", os.getenv("VERTEX_VEO_GCS_BUCKET", ""))
 
     def generate_image(
         self,
@@ -84,19 +85,35 @@ class VertexImagenProvider(MediaProvider):
 
         image_bytes = _extract_image_bytes(image)
         webp_bytes = _convert_to_webp(image_bytes)
-        b64 = base64.b64encode(webp_bytes).decode("utf-8")
 
+        aspect_ratio = _to_aspect_ratio(width, height)
+        metadata = {
+            "model": self.model_name,
+            "provider": self.name,
+            "aspect_ratio": aspect_ratio,
+            "prompt": prompt[:100],
+        }
+
+        if self.gcs_bucket:
+            blob_name = f"image_output/{uuid.uuid4().hex}.webp"
+            public_url = upload_to_gcs_public(webp_bytes, self.gcs_bucket, blob_name, "image/webp")
+            logger.info(f"[vertex_imagen] uploaded to GCS: {public_url}")
+            return MediaResult(
+                data=public_url,
+                data_type="url",
+                media_type="image",
+                mime_type="image/webp",
+                metadata=metadata,
+            )
+
+        # GCS 미설정 시 base64 fallback
+        import base64
         return MediaResult(
-            data=b64,
+            data=base64.b64encode(webp_bytes).decode("utf-8"),
             data_type="base64",
             media_type="image",
             mime_type="image/webp",
-            metadata={
-                "model": self.model_name,
-                "provider": self.name,
-                "aspect_ratio": _to_aspect_ratio(width, height),
-                "prompt": prompt[:100],
-            },
+            metadata=metadata,
         )
 
     @property

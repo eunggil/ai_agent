@@ -63,3 +63,21 @@ class MediaProvider(ABC):
     @property
     def supports_video(self) -> bool:
         return False
+
+
+def upload_to_gcs_public(data: bytes, bucket_name: str, blob_name: str, content_type: str) -> str:
+    """GCS에 파일을 업로드하고 public URL을 반환합니다.
+
+    버킷에 allUsers Storage Object Viewer IAM 권한이 필요합니다
+    (Uniform bucket-level access 환경):
+        gsutil iam ch allUsers:objectViewer gs://BUCKET_NAME
+    """
+    from google.cloud import storage
+
+    client = storage.Client()
+    bucket = client.bucket(bucket_name)
+    blob = bucket.blob(blob_name)
+    blob.upload_from_string(data, content_type=content_type)
+    # Uniform bucket-level access 환경에서는 IAM으로 공개 설정
+    # → ACL API 대신 URL을 직접 구성
+    return f"https://storage.googleapis.com/{bucket_name}/{blob_name}"

@@ -1,12 +1,14 @@
 # FastAPI & Server
 fastapi==0.109.0
 uvicorn[standard]==0.27.0
-pydantic==2.5.3
-pydantic-settings==2.1.0
+pydantic>=2.9.0
+pydantic-settings>=2.3.0
 
 # Google Cloud & Vertex AI
 # 1.70+ : Imagen 4, Veo 3.1 지원
 google-cloud-aiplatform>=1.70.0
+# google-genai: generate_videos (Veo) API 지원
+google-genai>=1.65.0
 google-cloud-storage>=2.14.0
 google-cloud-pubsub>=2.19.0
 google-cloud-firestore>=2.14.0
@@ -40,5 +42,5 @@ scikit-learn==1.4.0
 # Utilities
 python-dotenv==1.0.0
 python-multipart==0.0.6
-httpx==0.26.0
+httpx>=0.28.1
 tenacity==8.2.3

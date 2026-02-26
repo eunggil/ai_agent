@@ -37,7 +37,7 @@ import time
 import uuid
 from pathlib import Path
 
-from .base import MediaProvider, MediaResult
+from .base import MediaProvider, MediaResult, upload_to_gcs_public
 
 logger = logging.getLogger(__name__)
 
@@ -88,15 +88,8 @@ class VertexVeoProvider(MediaProvider):
                 "버킷 생성: gsutil mb -l us-central1 gs://your-bucket-name"
             )
 
-        import vertexai
-
-        # VideoGenerationModel은 SDK 버전에 따라 위치가 다를 수 있음
-        try:
-            from vertexai.preview.vision_models import VideoGenerationModel
-        except ImportError:
-            from vertexai.vision_models import VideoGenerationModel
-
-        vertexai.init(project=self.project_id, location=self.region)
+        import google.genai as genai
+        from google.genai import types
 
         # Veo 3: duration 4/6/8초, Veo 2: 4/8초만 지원
         duration_seconds = _clamp_duration(duration_seconds, self.model_name)
@@ -110,23 +103,38 @@ class VertexVeoProvider(MediaProvider):
         )
         start = time.time()
 
-        model = VideoGenerationModel.from_pretrained(self.model_name)
+        client = genai.Client(
+            vertexai=True,
+            project=self.project_id,
+            location=self.region,
+        )
 
-        params: dict = {
-            "prompt": prompt,
-            "target_gcs_uri": gcs_prefix,
-            "duration_seconds": duration_seconds,
-            "aspect_ratio": aspect_ratio,
-            "number_of_videos": 1,
-        }
-        if negative_prompt:
-            params["negative_prompt"] = negative_prompt
+        config = types.GenerateVideosConfig(
+            numberOfVideos=1,
+            outputGcsUri=gcs_prefix,
+            durationSeconds=duration_seconds,
+            aspectRatio=aspect_ratio,
+            negativePrompt=negative_prompt or None,
+        )
 
         # Long-Running Operation 실행
-        lro = model.generate_video(**params)
+        operation = client.models.generate_videos(
+            model=self.model_name,
+            prompt=prompt,
+            config=config,
+        )
 
+        # 완료 대기 (폴링)
         logger.info(f"[vertex_veo] waiting for operation (timeout={self.timeout}s)...")
-        lro.result(timeout=self.timeout)
+        deadline = start + self.timeout
+        while not operation.done:
+            if time.time() > deadline:
+                raise TimeoutError(f"Veo 생성 타임아웃 ({self.timeout}s)")
+            time.sleep(10)
+            operation = client.operations.get(operation)
+
+        if operation.error:
+            raise RuntimeError(f"Veo 생성 실패: {operation.error}")
 
         elapsed = time.time() - start
         logger.info(f"[vertex_veo] completed in {elapsed:.1f}s")
@@ -138,11 +146,14 @@ class VertexVeoProvider(MediaProvider):
             video_bytes = _convert_to_webm(video_bytes)
             mime_type = "video/webm"
 
-        b64 = base64.b64encode(video_bytes).decode("utf-8")
+        # webm을 GCS에 업로드 후 public URL 반환
+        blob_name = f"webm_output/{uuid.uuid4().hex}.webm"
+        public_url = upload_to_gcs_public(video_bytes, self.gcs_bucket, blob_name, mime_type)
+        logger.info(f"[vertex_veo] uploaded webm to GCS: {public_url}")
 
         return MediaResult(
-            data=b64,
-            data_type="base64",
+            data=public_url,
+            data_type="url",
             media_type="video",
             mime_type=mime_type,
             metadata={

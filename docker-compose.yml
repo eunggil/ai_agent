@@ -19,7 +19,7 @@ services:
       - LOCAL_MODEL=${LOCAL_MODEL:-llama3}
       # Vertex AI 모델 설정 (AI_PROVIDER=vertex 일 때)
       - VERTEX_AI_MODEL=${VERTEX_AI_MODEL:-gemini-2.0-flash}
-      - VERTEX_AI_LOCATION=${VERTEX_AI_LOCATION:-asia-northeast3}
+      - VERTEX_AI_LOCATION=${VERTEX_AI_LOCATION:-us-central1}
       - USE_MOCK_GRAPH_DB=${USE_MOCK_GRAPH_DB:-true}
       # PostgreSQL 연결
       - POSTGRES_HOST=postgres
@@ -38,6 +38,8 @@ services:
       - DIFFUSERS_DEVICE=${DIFFUSERS_DEVICE:-auto}
       - MEDIA_OUTPUT_DIR=/app/generated_media
       - REPLICATE_API_TOKEN=${REPLICATE_API_TOKEN:-}
+      # 미디어 GCS 버킷 (이미지/영상 public URL 반환용)
+      - GCS_MEDIA_BUCKET=${GCS_MEDIA_BUCKET:-}
       # Vertex AI Imagen / Veo 설정
       - VERTEX_AI_IMAGEN_MODEL=${VERTEX_AI_IMAGEN_MODEL:-imagen-4.0-fast-generate-001}
       - VERTEX_VEO_MODEL=${VERTEX_VEO_MODEL:-veo-3.1-fast-generate-001}
