@@ -81,6 +81,7 @@ Thumbs.db
 
 # Other
 scripts/
+!scripts/entrypoint.sh
 tests/
 *.bak
 tmp/
