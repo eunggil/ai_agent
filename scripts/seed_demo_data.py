@@ -52,7 +52,7 @@ INTEREST_POOLS = {
     "photography": ["photography", "camera", "art", "creative"],
     "music":       ["music", "concert", "playlist", "audio"],
     "gaming":      ["gaming", "esports", "console", "mobile"],
-    "lifestyle":   ["lifestyle", "daily", "routine", "trend"],
+    "lifestyle":   ["lifestyle", "routine", "trend"],
 }
 
 MINDSETS = ["trendy", "active", "relaxed", "curious", "creative", "practical", "social"]
@@ -93,11 +93,11 @@ PRODUCTS = [
     # skincare (10)
     {"category": "skincare", "brand": "INNISFREE", "name": "녹차 수분 세럼", "desc": "제주 녹차 성분 수분 세럼. 민감성 피부에도 순한 수분 보충.", "price": 22000, "tags": ["skincare", "serum", "moisturizing", "natural"]},
     {"category": "skincare", "brand": "SK-II", "name": "페이셜 트리트먼트 에센스", "desc": "피테라™ 성분 90% 이상 함유. 피부 결 개선.", "price": 180000, "tags": ["skincare", "essence", "luxury", "anti-aging"]},
-    {"category": "skincare", "brand": "Laneige", "name": "워터뱅크 수분크림", "desc": "히알루론산 집중 수분 공급. 72시간 수분 지속.", "price": 45000, "tags": ["skincare", "moisturizer", "hydrating", "daily"]},
+    {"category": "skincare", "brand": "Laneige", "name": "워터뱅크 수분크림", "desc": "히알루론산 집중 수분 공급. 72시간 수분 지속.", "price": 45000, "tags": ["skincare", "moisturizer", "hydrating"]},
     {"category": "skincare", "brand": "Cosrx", "name": "어드밴스드 스네일 세럼", "desc": "달팽이 분비물 96.3% 함유. 피부 재생 및 보습.", "price": 28000, "tags": ["skincare", "serum", "repair", "Korean"]},
     {"category": "skincare", "brand": "The Ordinary", "name": "나이아신아마이드 10% 세럼", "desc": "모공 개선, 피부 톤 균일화. 부담 없는 가격.", "price": 12000, "tags": ["skincare", "serum", "pore", "brightening"]},
     {"category": "skincare", "brand": "Sulwhasoo", "name": "윤조에센스", "desc": "한방 성분 기반 에센스. 피부 활력과 탄력 개선.", "price": 120000, "tags": ["skincare", "essence", "luxury", "herbal"]},
-    {"category": "skincare", "brand": "Belif", "name": "트루 크림 아쿠아 밤", "desc": "오트밀 추출물 함유 수분크림. 민감성 피부 적합.", "price": 38000, "tags": ["skincare", "moisturizer", "sensitive", "daily"]},
+    {"category": "skincare", "brand": "Belif", "name": "트루 크림 아쿠아 밤", "desc": "오트밀 추출물 함유 수분크림. 민감성 피부 적합.", "price": 38000, "tags": ["skincare", "moisturizer", "sensitive"]},
     {"category": "skincare", "brand": "Klairs", "name": "비타민 C 세럼", "desc": "5% 비타민C 함유. 미백 및 항산화 효과.", "price": 32000, "tags": ["skincare", "serum", "brightening", "vitamin"]},
     {"category": "skincare", "brand": "Etude House", "name": "순정 콜라겐 앰플", "desc": "콜라겐 고농도 앰플. 탄력 개선 및 주름 완화.", "price": 18000, "tags": ["skincare", "ampoule", "anti-aging", "collagen"]},
     {"category": "skincare", "brand": "Missha", "name": "타임레볼루션 에센스", "desc": "효모 발효 추출물 함유. 피부 장벽 강화.", "price": 65000, "tags": ["skincare", "essence", "ferment", "barrier"]},
@@ -105,7 +105,7 @@ PRODUCTS = [
     # fashion (15)
     {"category": "fashion", "brand": "ZARA", "name": "오버핏 리넨 셔츠", "desc": "편안한 오버핏 리넨 소재 셔츠. 여름 필수 아이템.", "price": 59000, "tags": ["fashion", "shirt", "linen", "casual"]},
     {"category": "fashion", "brand": "H&M", "name": "슬림 치노 팬츠", "desc": "스트레치 소재 슬림핏 치노 팬츠. 오피스룩에 적합.", "price": 39000, "tags": ["fashion", "pants", "office", "slim"]},
-    {"category": "fashion", "brand": "Uniqlo", "name": "에어리즘 V넥 티셔츠", "desc": "흡습속건 소재의 V넥 티셔츠. 사계절 데일리룩.", "price": 19900, "tags": ["fashion", "tshirt", "basic", "daily"]},
+    {"category": "fashion", "brand": "Uniqlo", "name": "에어리즘 V넥 티셔츠", "desc": "흡습속건 소재의 V넥 티셔츠. 사계절 데일리룩.", "price": 19900, "tags": ["fashion", "tshirt", "basic"]},
     {"category": "fashion", "brand": "Musinsa Standard", "name": "오버핏 후드 집업", "desc": "두꺼운 원단의 오버핏 후드 집업. 스트릿 스타일.", "price": 69000, "tags": ["fashion", "hoodie", "street", "oversized"]},
     {"category": "fashion", "brand": "Adidas", "name": "클래식 트랙 재킷", "desc": "아디다스 클래식 스트라이프 트랙 재킷. 레트로 스타일.", "price": 89000, "tags": ["fashion", "jacket", "sport", "retro"]},
     {"category": "fashion", "brand": "Nike", "name": "테크 플리스 조거", "desc": "테크 플리스 소재 조거 팬츠. 애슬레저 필수템.", "price": 109000, "tags": ["fashion", "pants", "athleisure", "comfort"]},
@@ -128,13 +128,13 @@ PRODUCTS = [
     {"category": "sports", "brand": "Theragun", "name": "미니 마사지건", "desc": "휴대용 근육 마사지건. 운동 후 회복에 최적.", "price": 249000, "tags": ["sports", "recovery", "massage", "health"]},
     {"category": "sports", "brand": "Reebok", "name": "나노 X3 크로스핏화", "desc": "크로스핏 전용 트레이닝화. 안정성과 유연성의 균형.", "price": 169000, "tags": ["sports", "shoes", "crossfit", "training"]},
     {"category": "sports", "brand": "GNC", "name": "프로 퍼포먼스 단백질", "desc": "유청 단백질 25g 함유. 초콜릿 맛. 근육 회복 지원.", "price": 89000, "tags": ["sports", "protein", "supplement", "gym"]},
-    {"category": "sports", "brand": "YETI", "name": "람블러 텀블러 30oz", "desc": "18/8 스테인리스 스틸. 24시간 냉온 유지.", "price": 79000, "tags": ["sports", "bottle", "outdoor", "daily"]},
+    {"category": "sports", "brand": "YETI", "name": "람블러 텀블러 30oz", "desc": "18/8 스테인리스 스틸. 24시간 냉온 유지.", "price": 79000, "tags": ["sports", "bottle", "outdoor"]},
     {"category": "sports", "brand": "On Running", "name": "클라우드 러닝화", "desc": "스위스 엔지니어링의 클라우드 쿠션 러닝화.", "price": 229000, "tags": ["sports", "shoes", "running", "Swiss"]},
 
     # food (10)
     {"category": "food", "brand": "Loacker", "name": "웨하스 초콜릿", "desc": "이탈리아 전통 웨하스에 진한 초콜릿 코팅. 달콤한 오후의 행복.", "price": 8500, "tags": ["food", "snack", "chocolate", "sweet"]},
     {"category": "food", "brand": "Pepero", "name": "아몬드 페페로", "desc": "바삭한 아몬드가 가득한 페페로. 선물용으로도 인기.", "price": 1500, "tags": ["food", "snack", "chocolate", "Korean"]},
-    {"category": "food", "brand": "Starbucks", "name": "콜드브루 원두커피", "desc": "스타벅스 시그니처 콜드브루. 부드럽고 깊은 커피 맛.", "price": 6500, "tags": ["food", "coffee", "cold brew", "daily"]},
+    {"category": "food", "brand": "Starbucks", "name": "콜드브루 원두커피", "desc": "스타벅스 시그니처 콜드브루. 부드럽고 깊은 커피 맛.", "price": 6500, "tags": ["food", "coffee", "cold brew"]},
     {"category": "food", "brand": "Nongshim", "name": "신라면 멀티팩", "desc": "매콤한 소고기 국물의 대표 라면. 5개입 묶음.", "price": 4500, "tags": ["food", "ramen", "spicy", "Korean"]},
     {"category": "food", "brand": "Häagen-Dazs", "name": "마카다미아 너트 아이스크림", "desc": "진한 크림과 마카다미아의 조화. 프리미엄 아이스크림.", "price": 12000, "tags": ["food", "icecream", "dessert", "premium"]},
     {"category": "food", "brand": "Oreo", "name": "더블 스터프 쿠키", "desc": "두 배 두꺼운 크림 필링의 오레오. 우유와 환상의 짝꿍.", "price": 5000, "tags": ["food", "cookie", "snack", "sweet"]},
@@ -180,7 +180,7 @@ PRODUCTS = [
     {"category": "home", "brand": "Instant Pot", "name": "듀오 7in1 전기 압력솥", "desc": "압력솥, 슬로우쿠커, 밥솥 등 7가지 기능.", "price": 179000, "tags": ["home", "cooker", "kitchen", "multifunctional"]},
 
     # health (10)
-    {"category": "health", "brand": "Centrum", "name": "멀티비타민 100정", "desc": "23가지 비타민&미네랄 복합 영양제. 면역 및 활력.", "price": 35000, "tags": ["health", "vitamin", "supplement", "daily"]},
+    {"category": "health", "brand": "Centrum", "name": "멀티비타민 100정", "desc": "23가지 비타민&미네랄 복합 영양제. 면역 및 활력.", "price": 35000, "tags": ["health", "vitamin", "supplement"]},
     {"category": "health", "brand": "Omega 3 Plus", "name": "오메가3 90캡슐", "desc": "rTG형 오메가3. 혈관 건강 및 두뇌 활동 지원.", "price": 42000, "tags": ["health", "omega3", "supplement", "heart"]},
     {"category": "health", "brand": "Manduka", "name": "PRO 요가매트 6mm", "desc": "프로 전용 두꺼운 요가매트. 미끄럼 방지.", "price": 219000, "tags": ["health", "yoga", "mat", "fitness"]},
     {"category": "health", "brand": "Fitbit", "name": "버사 4 스마트워치", "desc": "건강 추적 스마트워치. 수면, 심박, 스트레스 모니터링.", "price": 329000, "tags": ["health", "wearable", "tracker", "sleep"]},
