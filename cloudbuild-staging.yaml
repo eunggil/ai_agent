@@ -52,7 +52,7 @@ steps:
       - '--timeout'
       - '300s'
       - '--set-env-vars'
-      - 'ENVIRONMENT=staging,GCP_PROJECT_ID=${PROJECT_ID},GCP_REGION=${_REGION},USE_MOCK_VECTOR_DB=true,USE_MOCK_GRAPH_DB=true'
+      - 'ENVIRONMENT=staging,GCP_PROJECT_ID=${PROJECT_ID},GCP_REGION=${_REGION},USE_MOCK_GRAPH_DB=true'
       - '--set-secrets'
       - 'GOOGLE_APPLICATION_CREDENTIALS=vertex-ai-key:latest'
     waitFor: ['push-image']

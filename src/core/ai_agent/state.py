@@ -18,12 +18,15 @@ class FeedAgentState(TypedDict):
 
     # ── load_context ──────────────────────
     user_context: dict           # 사용자 프로필 + 관심사 + 최근 활동
+    user_vector: Optional[List[float]]  # DB long_term_vector (retrieve_candidates에서 재사용)
 
     # ── state_interpreter ─────────────────
     state_analysis: str          # 사용자 의도/감정/니즈 분석 (JSON string)
 
     # ── retrieve_candidates ───────────────
     ad_candidates: List[dict]    # 광고 후보 목록
+    product_candidates: List[dict]      # 관련 상품 목록 (creative_generator 컨텍스트)
+    reference_contents: List[dict]      # 참고 콘텐츠 목록 (creative_generator 컨텍스트)
 
     # ── strategy_planner ──────────────────
     strategy: str                # 결합 전략 (JSON string)

@@ -20,10 +20,8 @@ services:
       # Vertex AI 모델 설정 (AI_PROVIDER=vertex 일 때)
       - VERTEX_AI_MODEL=${VERTEX_AI_MODEL:-gemini-2.0-flash}
       - VERTEX_AI_LOCATION=${VERTEX_AI_LOCATION:-us-central1}
-      # Mock DB 사용 (기본값)
-      - USE_MOCK_VECTOR_DB=${USE_MOCK_VECTOR_DB:-true}
       - USE_MOCK_GRAPH_DB=${USE_MOCK_GRAPH_DB:-true}
-      # PostgreSQL 연결 (선택적)
+      # PostgreSQL 연결
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
       - POSTGRES_DB=${POSTGRES_DB:-ai_agent}

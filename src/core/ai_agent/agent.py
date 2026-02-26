@@ -2,12 +2,12 @@
 LangGraph 기반 피드 생성 에이전트
 
 Pipeline (6단계):
-    1. load_context       → 사용자 컨텍스트 로드 (Mock/DB)
-    2. state_interpreter  → 사용자 의도/감정 분석 (LLM)
-    3. retrieve_candidates → 광고 후보 검색 (Mock/Vector DB)
-    4. strategy_planner   → 결합 전략 수립 (LLM)
-    5. creative_generator → 텍스트 콘텐츠 + 이미지 프롬프트 생성 (LLM)
-    6. media_generator    → 이미지/영상 생성 (Imagen / LCM-LoRA / Replicate)
+    1. load_context        → 사용자 컨텍스트 로드 (DB)
+    2. state_interpreter   → 사용자 의도/감정 분석 (LLM)
+    3. retrieve_candidates → 광고/상품/콘텐츠 후보 검색 (pgvector)
+    4. strategy_planner    → 결합 전략 수립 (LLM)
+    5. creative_generator  → 텍스트 콘텐츠 + 이미지 프롬프트 생성 (LLM)
+    6. media_generator     → 이미지/영상 생성 (Imagen / LCM-LoRA / Replicate)
 
 환경변수:
     AI_PROVIDER=vertex | local
@@ -15,7 +15,6 @@ Pipeline (6단계):
     IMAGE_MODEL=lcm-lora-sdxl | lcm-lora-sd15 | sdxl | sd15 | flux-schnell
     VIDEO_MODEL=animatediff-lcm | animate-diff | svd
     MEDIA_TYPE=image | video | text
-    USE_MOCK_VECTOR_DB=true | false
 """
 import json
 import logging
@@ -28,15 +27,10 @@ from langgraph.graph import StateGraph, END
 from .providers import get_provider, ModelProvider
 from .media_providers import get_media_provider, MediaProvider
 from .state import FeedAgentState
+from .db_data import get_user, retrieve_ad_candidates, retrieve_products, retrieve_reference_contents
 
 logger = logging.getLogger(__name__)
 
-USE_MOCK = os.getenv("USE_MOCK_VECTOR_DB", "true").lower() == "true"
-
-if USE_MOCK:
-    from .mock_data import get_user, retrieve_ad_candidates
-else:
-    from .db_data import get_user, retrieve_ad_candidates
 MEDIA_TYPE = os.getenv("MEDIA_TYPE", "image")  # image | video | text
 
 
@@ -46,10 +40,19 @@ MEDIA_TYPE = os.getenv("MEDIA_TYPE", "image")  # image | video | text
 
 def _load_context_node(state: FeedAgentState) -> FeedAgentState:
     user_id = state["user_id"]
-    user_context = get_user(user_id)  # Mock → 추후 DB로 교체
+    user_data = get_user(user_id)
 
-    logger.info(f"[1/6 load_context] user={user_id}, interests={user_context.get('interests')}")
-    state["user_context"] = user_context
+    # long_term_vector를 user_context에서 분리해 state에 별도 저장
+    # (retrieve_candidates에서 임베딩 재생성 없이 재사용)
+    user_vector = user_data.pop("long_term_vector", None)
+
+    logger.info(
+        f"[1/6 load_context] user={user_id}, "
+        f"interests={user_data.get('interests')}, "
+        f"vector={'있음' if user_vector else '없음'}"
+    )
+    state["user_context"] = user_data
+    state["user_vector"] = user_vector
     return state
 
 
@@ -106,11 +109,22 @@ def _make_state_interpreter_node(provider: ModelProvider):
 def _retrieve_candidates_node(state: FeedAgentState) -> FeedAgentState:
     user = state["user_context"]
     interests = user.get("interests", ["lifestyle"])
+    prompt = state["prompt"]
+    user_vector = state.get("user_vector")  # load_context에서 받은 long_term_vector
 
-    candidates = retrieve_ad_candidates(interests, state["prompt"], top_k=3)
-    logger.info(f"[3/6 retrieve_candidates] found {len(candidates)} candidates")
+    # user_vector 재사용으로 임베딩 API 호출 최소화
+    candidates = retrieve_ad_candidates(interests, prompt, top_k=3, user_vector=user_vector)
+    products = retrieve_products(interests, prompt, top_k=3, user_vector=user_vector)
+    contents = retrieve_reference_contents(interests, prompt, top_k=2, user_vector=user_vector)
+
+    logger.info(
+        f"[3/6 retrieve_candidates] ads={len(candidates)}, "
+        f"products={len(products)}, contents={len(contents)}"
+    )
 
     state["ad_candidates"] = candidates
+    state["product_candidates"] = products
+    state["reference_contents"] = contents
     return state
 
 
@@ -185,6 +199,27 @@ def _make_creative_generator_node(provider: ModelProvider):
             candidates[0] if candidates else {},
         )
 
+        # 관련 상품 컨텍스트 (최대 2개)
+        product_context = ""
+        product_candidates = state.get("product_candidates", [])
+        if product_candidates:
+            lines = [
+                f"- {p['brand']} {p['name']} ({p['category']}, {p['price']}원): {p['description']}"
+                for p in product_candidates[:2]
+            ]
+            product_context = "\n관련 상품 참고 (이미지 분위기 및 텍스트에 자연스럽게 반영):\n" + "\n".join(lines)
+
+        # 참고 콘텐츠 컨텍스트 (최대 2개)
+        content_context = ""
+        reference_contents = state.get("reference_contents", [])
+        if reference_contents:
+            lines = [
+                f"- [{c['content_type']}] {c['text'][:80]}"
+                for c in reference_contents if c.get("text")
+            ]
+            if lines:
+                content_context = "\n참고 콘텐츠 스타일 (톤앤매너 참고용):\n" + "\n".join(lines)
+
         system = "당신은 SNS 콘텐츠 크리에이터이자 AI 이미지 프롬프트 전문가입니다. JSON으로만 응답하세요."
         llm_prompt = f"""사용자 상태: {state['state_analysis']}
 
@@ -193,9 +228,10 @@ def _make_creative_generator_node(provider: ModelProvider):
 - 핵심 메시지: {strategy.get('key_message', '')}
 - 시각 방향: {strategy.get('visual_direction', 'lifestyle photography')}
 
-선택된 상품:
+선택된 광고 상품:
 - {selected_ad.get('brand', '')} {selected_ad.get('product', '')}
 - 설명: {selected_ad.get('description', '')}
+{product_context}{content_context}
 
 생성할 미디어 타입: {media_type}
 
@@ -338,8 +374,11 @@ class FeedAgent:
             "user_id": user_id,
             "prompt": prompt,
             "user_context": {},
+            "user_vector": None,
             "state_analysis": "",
             "ad_candidates": [],
+            "product_candidates": [],
+            "reference_contents": [],
             "strategy": "",
             "generated_content": "",
             "image_prompt": "",

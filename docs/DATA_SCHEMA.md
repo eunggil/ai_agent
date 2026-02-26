@@ -256,115 +256,141 @@ OPTIONS(
 
 ```sql
 CREATE TABLE users (
-  user_id       VARCHAR(50) PRIMARY KEY,
-  name          VARCHAR(100),
-  age           INT,
-  gender        VARCHAR(10),
-  country       VARCHAR(10),
-  interests     TEXT[],           -- 관심사 배열
-  tier          VARCHAR(20),      -- free | standard | premium
-  embedding     vector(768),      -- text-embedding-004 768차원
-  created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  user_id           VARCHAR(255) PRIMARY KEY,
+  created_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  profile           JSONB,           -- 사용자 프로필 전체
+  long_term_vector  vector(768),     -- 장기 선호 벡터 (text-embedding-004)
+  short_term_vector vector(768)      -- 단기/세션 벡터 (text-embedding-004)
 );
+/*
+profile JSONB 구조:
+{
+  "name": "김지수",
+  "age": 25,
+  "interests": ["fashion", "beauty", "lifestyle"],
+  "mindset": "trendy",
+  "recent_activities": ["립스틱 상품 조회", "캐주얼 아웃핏 검색"],
+  "vector_summary": "패션/뷰티 관심 높음, 20대 여성, 자연스러운 스타일 선호"
+}
+*/
 
--- HNSW 인덱스 (cosine similarity)
-CREATE INDEX idx_users_embedding
-ON users
-USING hnsw (embedding vector_cosine_ops)
-WITH (m = 16, ef_construction = 64);
+CREATE INDEX users_long_term_vector_idx  ON users USING hnsw (long_term_vector  vector_cosine_ops);
+CREATE INDEX users_short_term_vector_idx ON users USING hnsw (short_term_vector vector_cosine_ops);
+CREATE INDEX idx_users_created_at        ON users(created_at);
 ```
 
-**데모 데이터:** 15명 (seed_demo_data.py로 자동 시드)
+**데모 데이터:** 3명 (init_db.sql 기본값) + 15명 (seed_demo_data.py 자동 시드)
 
 ### 2.2 캠페인 테이블 (광고 캠페인)
 
 ```sql
 CREATE TABLE campaigns (
-  campaign_id    VARCHAR(50) PRIMARY KEY,
-  title          VARCHAR(200),
-  description    TEXT,
-  category       VARCHAR(50),     -- fashion | beauty | health | food | ...
-  target_age_min INT,
-  target_age_max INT,
-  target_gender  VARCHAR(10),
-  bid_amount     DECIMAL(6,2),
-  status         VARCHAR(20) DEFAULT 'active',
-  image_url      TEXT,            -- 샘플 이미지 URL (picsum.photos 등)
-  embedding      vector(768),     -- text-embedding-004 768차원
-  created_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  campaign_id     VARCHAR(255) PRIMARY KEY,
+  brand_id        VARCHAR(255),
+  created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  campaign_data   JSONB,           -- 광고 소재 및 메타데이터
+  targeting_rules JSONB,           -- 타겟팅 태그 규칙
+  embedding       vector(768)      -- 캠페인 의미 벡터 (text-embedding-004)
 );
+/*
+campaign_data JSONB 구조:
+{
+  "ad_id": "ad_001",
+  "product": "LUNA 매트 립스틱",
+  "brand": "LUNA",
+  "category": "beauty",
+  "description": "촉촉한 매트 립스틱, 자연스러운 누드 베이지 컬러.",
+  "bid": 2.5,
+  "image_url": "https://picsum.photos/seed/luna-lipstick/400/400"
+}
 
--- HNSW 인덱스
-CREATE INDEX idx_campaigns_embedding
-ON campaigns
-USING hnsw (embedding vector_cosine_ops)
-WITH (m = 16, ef_construction = 64);
+targeting_rules JSONB 구조:
+{
+  "tags": ["beauty", "cosmetic", "lip", "fashion"]
+}
+*/
+
+CREATE INDEX campaigns_embedding_idx ON campaigns USING hnsw (embedding vector_cosine_ops);
+CREATE INDEX idx_campaigns_brand     ON campaigns(brand_id);
 ```
 
-**데모 데이터:** 100개 (8개 카테고리, seed_demo_data.py로 자동 시드)
+**데모 데이터:** 6개 (init_db.sql 기본값) + 100개 (seed_demo_data.py 자동 시드, 8개 카테고리)
 
 ### 2.3 상품 테이블
 
 ```sql
 CREATE TABLE products (
-  product_id   VARCHAR(50) PRIMARY KEY,
-  name         VARCHAR(200),
-  description  TEXT,
-  category     VARCHAR(50),
-  price        DECIMAL(10,2),
-  brand        VARCHAR(100),
-  image_url    TEXT,            -- 샘플 이미지 URL
-  embedding    vector(768),
-  created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  product_id   VARCHAR(255) PRIMARY KEY,
+  brand_id     VARCHAR(255),
+  created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  product_data JSONB,           -- 상품 정보
+  embedding    vector(768)      -- 상품 의미 벡터 (text-embedding-004)
 );
+/*
+product_data JSONB 구조:
+{
+  "name": "상품명",
+  "brand": "브랜드명",
+  "category": "fashion",
+  "description": "상품 설명",
+  "price": 29900,
+  "image_url": "https://picsum.photos/seed/.../400/400"
+}
+*/
 
--- HNSW 인덱스
-CREATE INDEX idx_products_embedding
-ON products
-USING hnsw (embedding vector_cosine_ops)
-WITH (m = 16, ef_construction = 64);
+CREATE INDEX products_embedding_idx ON products USING hnsw (embedding vector_cosine_ops);
+CREATE INDEX idx_products_brand     ON products(brand_id);
 ```
 
-**데모 데이터:** 100개 (8개 카테고리, seed_demo_data.py로 자동 시드)
+**데모 데이터:** 100개 (seed_demo_data.py 자동 시드, 8개 카테고리)
 
 ### 2.4 콘텐츠 테이블
 
 ```sql
 CREATE TABLE contents (
-  content_id   VARCHAR(50) PRIMARY KEY,
-  title        VARCHAR(200),
-  body         TEXT,
-  category     VARCHAR(50),
-  content_type VARCHAR(50),     -- article | video | image
-  embedding    vector(768),
-  created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  content_id   VARCHAR(255) PRIMARY KEY,
+  created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  content_type VARCHAR(50),     -- post | review | story | reel | ad_creative
+  metadata     JSONB,           -- 콘텐츠 메타데이터
+  embedding    vector(768)      -- 콘텐츠 의미 벡터 (text-embedding-004)
 );
+/*
+metadata JSONB 구조:
+{
+  "text": "콘텐츠 본문",
+  "product_id": "prod_001",
+  "brand": "ZARA",
+  "category": "fashion",
+  "image_url": "https://picsum.photos/seed/.../400/400"
+}
+*/
 
--- HNSW 인덱스
-CREATE INDEX idx_contents_embedding
-ON contents
-USING hnsw (embedding vector_cosine_ops)
-WITH (m = 16, ef_construction = 64);
+CREATE INDEX contents_embedding_idx ON contents USING hnsw (embedding vector_cosine_ops);
+CREATE INDEX idx_contents_type      ON contents(content_type);
 ```
 
-**데모 데이터:** 100개 (seed_demo_data.py로 자동 시드)
+**데모 데이터:** 100개 (seed_demo_data.py 자동 시드)
 
 ### 2.5 벡터 검색 방식
 
-광고 후보 검색 시 pgvector cosine similarity + bid 보너스 결합:
+광고 후보 검색 시 pgvector cosine similarity + bid 보너스 결합 (`src/core/ai_agent/db_data.py`):
 
 ```sql
 -- 코사인 유사도 기반 Top-K 광고 후보 검색
 SELECT
-  campaign_id, title, category, bid_amount, image_url,
-  1 - (embedding <=> %s::vector) AS similarity
+  campaign_id, brand_id, campaign_data, targeting_rules,
+  ROUND(CAST(
+    (1 - (embedding <=> %s::vector)) * 0.7
+    + COALESCE((campaign_data->>'bid')::float, 0) / 10.0 * 0.3
+  AS NUMERIC), 3) AS relevance_score
 FROM campaigns
-WHERE status = 'active'
-ORDER BY (1 - (embedding <=> %s::vector)) * 0.7 + (bid_amount / 10.0) * 0.3 DESC
+WHERE embedding IS NOT NULL
+ORDER BY relevance_score DESC
 LIMIT 10;
 ```
 
-- embedding 없는 경우 키워드 기반 점수로 폴백
+- embedding 미생성 시 `targeting_rules.tags` 기반 키워드 점수로 폴백
 - 최종 스코어 = 코사인 유사도(70%) + 입찰금액 보너스(30%)
 
 ---

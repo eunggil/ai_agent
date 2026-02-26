@@ -30,7 +30,6 @@ ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
 GCP_PROJECT_ID = os.getenv("GCP_PROJECT_ID", "")
 AI_PROVIDER = os.getenv("AI_PROVIDER", "vertex")
 MEDIA_PROVIDER = os.getenv("MEDIA_PROVIDER", "none")
-USE_MOCK_VECTOR_DB = os.getenv("USE_MOCK_VECTOR_DB", "true").lower() == "true"
 USE_MOCK_GRAPH_DB = os.getenv("USE_MOCK_GRAPH_DB", "true").lower() == "true"
 MEDIA_OUTPUT_DIR = os.getenv("MEDIA_OUTPUT_DIR", "/tmp/ai_agent_media")
 os.makedirs(MEDIA_OUTPUT_DIR, exist_ok=True)
@@ -97,7 +96,6 @@ async def health_check():
             "gcp_project_id": GCP_PROJECT_ID,
             "ai_provider": AI_PROVIDER,
             "media_provider": MEDIA_PROVIDER,
-            "use_mock_vector_db": USE_MOCK_VECTOR_DB,
             "use_mock_graph_db": USE_MOCK_GRAPH_DB,
         },
     )
@@ -185,7 +183,6 @@ async def generate_ai_feed(request: AIGenerateRequest):
                     "selected_ad": strategy.get("selected_product", ""),
                     "ad_image_url": ad_image_url,
                     "combination_method": strategy.get("combination_method", ""),
-                    "using_mock": USE_MOCK_VECTOR_DB,
                 },
             },
         }
@@ -209,7 +206,7 @@ async def download_media(filename: str):
 @app.get("/v1/user/{user_id}")
 async def get_user(user_id: str):
     """사용자 정보 조회"""
-    from src.core.ai_agent.mock_data import get_user as _get_user
+    from src.core.ai_agent.db_data import get_user as _get_user
 
     user = _get_user(user_id)
     return {
@@ -232,7 +229,7 @@ async def startup_event():
     logger.info(f"Starting AI Agent API in {ENVIRONMENT} mode")
     logger.info(f"AI Provider: {AI_PROVIDER} | Media Provider: {MEDIA_PROVIDER}")
     logger.info(f"GCP Project: {GCP_PROJECT_ID}")
-    logger.info(f"Mock Vector DB: {USE_MOCK_VECTOR_DB}, Mock Graph DB: {USE_MOCK_GRAPH_DB}")
+    logger.info(f"Mock Graph DB: {USE_MOCK_GRAPH_DB}")
 
     # 에이전트 사전 초기화 (첫 요청 지연 방지)
     try:
