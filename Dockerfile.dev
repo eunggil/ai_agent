@@ -11,6 +11,7 @@ RUN apt-get update && apt-get install -y \
     git \
     curl \
     vim \
+    ffmpeg \
     postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 

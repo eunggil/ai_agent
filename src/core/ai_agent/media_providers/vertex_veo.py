@@ -130,15 +130,20 @@ class VertexVeoProvider(MediaProvider):
         elapsed = time.time() - start
         logger.info(f"[vertex_veo] completed in {elapsed:.1f}s")
 
-        # GCS에서 mp4 파일 찾아서 다운로드
-        video_bytes = _download_video_from_gcs(self.gcs_bucket, gcs_prefix)
+        # GCS에서 영상 파일 찾아서 다운로드 (webm 우선, mp4는 변환)
+        video_bytes, mime_type = _download_video_from_gcs(self.gcs_bucket, gcs_prefix)
+        if mime_type == "video/mp4":
+            logger.info("[vertex_veo] converting mp4 → webm via ffmpeg")
+            video_bytes = _convert_to_webm(video_bytes)
+            mime_type = "video/webm"
+
         b64 = base64.b64encode(video_bytes).decode("utf-8")
 
         return MediaResult(
             data=b64,
             data_type="base64",
             media_type="video",
-            mime_type="video/mp4",
+            mime_type=mime_type,
             metadata={
                 "model": self.model_name,
                 "provider": self.name,
@@ -189,6 +194,49 @@ class VertexUnifiedProvider(MediaProvider):
 # 헬퍼
 # ──────────────────────────────────────────
 
+def _convert_to_webm(video_bytes: bytes, crf: int = 33) -> bytes:
+    """MP4 바이트 → WebM(VP9+Opus) 바이트 변환.
+
+    ffmpeg를 subprocess로 호출합니다 (Docker 이미지에 ffmpeg 설치 필요).
+    VP9 + Opus 코덱 사용: 브라우저 호환성과 품질의 균형.
+    """
+    import os
+    import subprocess
+    import tempfile
+
+    with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as inp:
+        inp.write(video_bytes)
+        inp_path = inp.name
+
+    out_path = inp_path.replace(".mp4", ".webm")
+    try:
+        result = subprocess.run(
+            [
+                "ffmpeg", "-y",
+                "-i", inp_path,
+                "-c:v", "libvpx-vp9",
+                "-crf", str(crf),
+                "-b:v", "0",           # CRF 모드 (고정 품질)
+                "-c:a", "libopus",
+                "-f", "webm",
+                out_path,
+            ],
+            capture_output=True,
+            timeout=300,
+        )
+        if result.returncode != 0:
+            raise RuntimeError(
+                f"ffmpeg 변환 실패 (exit {result.returncode}):\n"
+                f"{result.stderr.decode(errors='replace')}"
+            )
+        with open(out_path, "rb") as f:
+            return f.read()
+    finally:
+        os.unlink(inp_path)
+        if os.path.exists(out_path):
+            os.unlink(out_path)
+
+
 def _clamp_duration(duration: int, model_name: str) -> int:
     """모델별 지원 duration으로 보정"""
     if any(tag in model_name for tag in _VEO3_MODELS):
@@ -198,8 +246,11 @@ def _clamp_duration(duration: int, model_name: str) -> int:
     return min(allowed, key=lambda x: abs(x - duration))
 
 
-def _download_video_from_gcs(bucket_name: str, gcs_prefix: str) -> bytes:
-    """GCS 경로에서 mp4 파일 다운로드"""
+def _download_video_from_gcs(bucket_name: str, gcs_prefix: str) -> tuple:
+    """GCS 경로에서 영상 파일 다운로드. (bytes, mime_type) 반환.
+
+    webm을 우선 선택하고, 없으면 mp4를 사용합니다.
+    """
     from google.cloud import storage
 
     client = storage.Client()
@@ -209,15 +260,20 @@ def _download_video_from_gcs(bucket_name: str, gcs_prefix: str) -> bytes:
     prefix = gcs_prefix.replace(f"gs://{bucket_name}/", "")
 
     blobs = list(bucket.list_blobs(prefix=prefix))
+
+    webm_blobs = [b for b in blobs if b.name.endswith(".webm")]
     mp4_blobs = [b for b in blobs if b.name.endswith(".mp4")]
 
-    if not mp4_blobs:
+    if webm_blobs:
+        webm_blobs.sort(key=lambda b: b.updated, reverse=True)
+        logger.info(f"[vertex_veo] downloading webm: {webm_blobs[0].name}")
+        return webm_blobs[0].download_as_bytes(), "video/webm"
+    elif mp4_blobs:
+        mp4_blobs.sort(key=lambda b: b.updated, reverse=True)
+        logger.info(f"[vertex_veo] downloading mp4: {mp4_blobs[0].name}")
+        return mp4_blobs[0].download_as_bytes(), "video/mp4"
+    else:
         raise RuntimeError(
             f"GCS에서 영상 파일을 찾을 수 없습니다: {gcs_prefix}\n"
             "Veo 생성이 완료되지 않았거나 권한 문제일 수 있습니다."
         )
-
-    # 가장 최근 파일 선택
-    mp4_blobs.sort(key=lambda b: b.updated, reverse=True)
-    logger.info(f"[vertex_veo] downloading: {mp4_blobs[0].name}")
-    return mp4_blobs[0].download_as_bytes()

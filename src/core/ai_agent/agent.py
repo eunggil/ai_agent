@@ -279,7 +279,10 @@ def _make_creative_generator_node(provider: ModelProvider):
 # 노드 6: 미디어 생성 (이미지 / 영상)
 # ══════════════════════════════════════════════
 
-def _make_media_generator_node(media_provider: Optional[MediaProvider]):
+def _make_media_generator_node(
+    media_provider: Optional[MediaProvider],
+    video_provider: Optional[MediaProvider],
+):
     def node(state: FeedAgentState) -> FeedAgentState:
         media_type = state.get("media_type", MEDIA_TYPE)
 
@@ -294,36 +297,31 @@ def _make_media_generator_node(media_provider: Optional[MediaProvider]):
         image_prompt = state.get("image_prompt") or state.get("generated_content", "")
         negative_prompt = state.get("negative_prompt", "bad quality, blurry")
 
-        logger.info(
-            f"[6/6 media_generator] type={media_type}, "
-            f"provider={media_provider.name}"
-        )
-
         try:
             if media_type == "video":
-                if not media_provider.supports_video:
-                    logger.warning(
-                        f"{media_provider.name} does not support video. "
-                        "Falling back to image."
+                if video_provider is None:
+                    raise RuntimeError(
+                        "영상 생성 프로바이더가 없습니다. "
+                        "MEDIA_PROVIDER=vertex 또는 MEDIA_PROVIDER=vertex_veo로 설정하고 "
+                        "VERTEX_VEO_GCS_BUCKET을 지정하세요."
                     )
-                    result = media_provider.generate_image(image_prompt, negative_prompt)
-                    state["media_type"] = "image"
-                else:
-                    result = media_provider.generate_video(image_prompt, negative_prompt)
+                logger.info(f"[6/6 media_generator] type=video, provider={video_provider.name}")
+                result = video_provider.generate_video(image_prompt, negative_prompt)
+                state["media_provider_name"] = video_provider.name
             else:
+                logger.info(f"[6/6 media_generator] type=image, provider={media_provider.name}")
                 result = media_provider.generate_image(image_prompt, negative_prompt)
+                state["media_provider_name"] = media_provider.name
 
             state["media_data"] = result.data
             state["media_metadata"] = result.to_dict()
             state["media_metadata"].pop("data", None)  # 메타에서 data 제거 (중복)
-            state["media_provider_name"] = media_provider.name
 
         except Exception as e:
             logger.error(f"[media_generator] error: {e}", exc_info=True)
             state["error"] = f"media_generator 실패: {e}"
             state["media_data"] = ""
             state["media_metadata"] = {"error": str(e)}
-            state["media_provider_name"] = media_provider.name
 
         return state
     return node
@@ -339,11 +337,30 @@ class FeedAgent:
     def __init__(self):
         self.provider = get_provider()
         self.media_provider = get_media_provider()
+        self.video_provider = self._resolve_video_provider()
         self.graph = self._build_graph()
         logger.info(
             f"FeedAgent ready | LLM={self.provider.name} | "
-            f"Media={self.media_provider.name if self.media_provider else 'none'}"
+            f"Image={self.media_provider.name if self.media_provider else 'none'} | "
+            f"Video={self.video_provider.name if self.video_provider else 'none'}"
         )
+
+    def _resolve_video_provider(self) -> Optional[MediaProvider]:
+        """영상 지원 프로바이더 결정.
+
+        - media_provider가 영상을 지원하면 그대로 사용
+        - vertex_imagen처럼 영상 미지원이면 VERTEX_VEO_GCS_BUCKET이
+          설정된 경우에 한해 VertexVeoProvider를 별도 생성
+        """
+        if self.media_provider and self.media_provider.supports_video:
+            return self.media_provider
+        if os.getenv("VERTEX_VEO_GCS_BUCKET"):
+            try:
+                from .media_providers.vertex_veo import VertexVeoProvider
+                return VertexVeoProvider()
+            except Exception as e:
+                logger.warning(f"VertexVeoProvider 초기화 실패: {e}")
+        return None
 
     def _build_graph(self) -> Any:
         workflow = StateGraph(FeedAgentState)
@@ -353,7 +370,7 @@ class FeedAgent:
         workflow.add_node("retrieve_candidates", _retrieve_candidates_node)
         workflow.add_node("strategy_planner", _make_strategy_planner_node(self.provider))
         workflow.add_node("creative_generator", _make_creative_generator_node(self.provider))
-        workflow.add_node("media_generator", _make_media_generator_node(self.media_provider))
+        workflow.add_node("media_generator", _make_media_generator_node(self.media_provider, self.video_provider))
 
         workflow.set_entry_point("load_context")
         workflow.add_edge("load_context", "state_interpreter")
