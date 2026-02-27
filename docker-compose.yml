@@ -132,8 +132,8 @@ services:
     depends_on:
       langfuse-postgres:
         condition: service_healthy
-      langfuse-redis:
-        condition: service_healthy
+      redis:
+        condition: service_started
       langfuse-clickhouse:
         condition: service_healthy
       langfuse-minio:
@@ -152,9 +152,9 @@ services:
       CLICKHOUSE_USER: clickhouse
       CLICKHOUSE_PASSWORD: clickhouse
       CLICKHOUSE_CLUSTER_ENABLED: "false"
-      REDIS_HOST: langfuse-redis
+      REDIS_HOST: redis
       REDIS_PORT: 6379
-      REDIS_AUTH: langfuse
+      REDIS_AUTH: ""
       LANGFUSE_S3_EVENT_UPLOAD_BUCKET: langfuse
       LANGFUSE_S3_EVENT_UPLOAD_REGION: auto
       LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID: minio
@@ -190,8 +190,8 @@ services:
     depends_on:
       langfuse-postgres:
         condition: service_healthy
-      langfuse-redis:
-        condition: service_healthy
+      redis:
+        condition: service_started
       langfuse-clickhouse:
         condition: service_healthy
       langfuse-minio:
@@ -215,22 +215,6 @@ services:
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
-      timeout: 5s
-      retries: 10
-    networks:
-      - ai-agent-network
-
-  langfuse-redis:
-    image: redis:7-alpine
-    container_name: ai-agent-langfuse-redis
-    profiles: ["langfuse"]
-    restart: unless-stopped
-    command: redis-server --requirepass langfuse
-    volumes:
-      - langfuse_redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "-a", "langfuse", "ping"]
-      interval: 3s
       timeout: 5s
       retries: 10
     networks:
@@ -307,7 +291,6 @@ volumes:
   pgadmin_data:
   ollama_data:
   langfuse_postgres_data:
-  langfuse_redis_data:
   langfuse_clickhouse_data:
   langfuse_clickhouse_logs:
   langfuse_minio_data:
