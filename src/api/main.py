@@ -162,7 +162,7 @@ async def generate_ai_feed(request: AIGenerateRequest):
             if data_type == "url":
                 media_url = result["media_data"]
                 # 개발/스테이징 환경에서는 GCS 파일을 로컬에도 저장
-                if ENVIRONMENT != "production":
+                if ENVIRONMENT == "development":
                     try:
                         import httpx as _httpx
                         ext = mime_type.split("/")[-1]
