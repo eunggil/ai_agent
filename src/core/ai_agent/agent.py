@@ -430,19 +430,17 @@ def get_agent() -> FeedAgent:
 # ──────────────────────────────────────────
 
 def _get_langfuse_handler(user_id: str = ""):
-    """Langfuse 트레이싱 콜백 핸들러 반환. 설정 없으면 None."""
-    secret_key = os.getenv("LANGFUSE_SECRET_KEY", "")
-    public_key = os.getenv("LANGFUSE_PUBLIC_KEY", "")
-    if not secret_key or not public_key:
+    """Langfuse 트레이싱 콜백 핸들러 반환. 설정 없으면 None.
+
+    LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY, LANGFUSE_HOST 환경변수를 자동으로 읽음.
+    """
+    if not os.getenv("LANGFUSE_PUBLIC_KEY") or not os.getenv("LANGFUSE_SECRET_KEY"):
         return None
     try:
-        from langfuse.callback import CallbackHandler
-        return CallbackHandler(
-            secret_key=secret_key,
-            public_key=public_key,
-            host=os.getenv("LANGFUSE_HOST", "http://langfuse-web:3000"),
-            session_id=user_id or None,
-        )
+        from langfuse import Langfuse
+        from langfuse.langchain import CallbackHandler
+        Langfuse()  # 클라이언트 초기화 (env vars 자동 적용)
+        return CallbackHandler()
     except Exception as e:
         logger.warning(f"Langfuse 초기화 실패 (트레이싱 비활성화): {e}")
         return None
