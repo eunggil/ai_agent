@@ -1,347 +1,244 @@
-# AI Agent - 개인화 피드 생성형 SNS
+# AI Agent — 개인화 피드 생성형 SNS
 
 > User-State Driven Media Generation Platform
 
-글로벌 개인화 AI 기반 피드 생성형 SNS 시스템
+사용자 상태를 실시간으로 추론하여 이미지·영상을 즉석에서 생성하고, 광고를 자연스럽게 녹여낸 SNS 피드를 만드는 AI 에이전트 플랫폼입니다.
 
-## 개요
+---
 
-이 프로젝트는 단순한 추천 시스템이 아닌, 사용자 상태를 이해하고 그에 맞는 콘텐츠를 **생성**하는 플랫폼입니다.
-
-### 핵심 차별점
-
-**기존 SNS:**
-```
-콘텐츠 생성 → 사용자 매칭 → 피드 노출
-```
-
-**우리 시스템:**
-```
-사용자 상태 추론 → 전략 결정 → 콘텐츠 생성 → 광고 결합 → 피드 노출
-```
-
-## 주요 기능
-
-- ✨ **AI 옵션 기반 온디맨드 생성**: 사용자 요청에 따라 맞춤형 콘텐츠 생성
-- 🎯 **상태 기반 개인화**: 장기/단기 벡터 결합으로 정교한 개인화
-- 💰 **자연스러운 광고 통합**: Story Blend, Inline, Subtle 3가지 방식
-- 🚀 **비동기 중심 아키텍처**: 확장 가능한 이벤트 기반 시스템
-- 🌍 **글로벌 확장 설계**: 처음부터 글로벌 확장을 고려한 설계
-
-## 시스템 아키텍처
+## 핵심 차별점
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                      Client Layer                           │
-└─────────────────┬───────────────────────────────────────────┘
-                  │
-┌─────────────────▼───────────────────────────────────────────┐
-│              Feed Orchestration Layer                       │
-└─────────────────┬───────────────────────────────────────────┘
-                  │
-        ┌─────────┴─────────┐
-        │                   │
-┌───────▼────────┐   ┌──────▼─────────┐
-│  Basic Feed    │   │  AI Feed       │
-└───────┬────────┘   └──────┬─────────┘
-        │                   │
-        │         ┌─────────▼──────────────────────────────┐
-        │         │     AI Agent Layer                     │
-        │         │  ① State Interpreter                   │
-        │         │  ② Strategy Planner                    │
-        │         │  ③ Creative Generator                  │
-        │         └─────────┬──────────────────────────────┘
-        │                   │
-        └─────────┬─────────┘
-                  │
-┌─────────────────▼───────────────────────────────────────────┐
-│              Vector Engine Layer                            │
-└─────────────────┬───────────────────────────────────────────┘
-                  │
-┌─────────────────▼───────────────────────────────────────────┐
-│                 Data Layer                                  │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐   │
-│  │BigQuery  │  │ Pub/Sub  │  │Firestore │  │Vector DB │   │
-│  └──────────┘  └──────────┘  └──────────┘  └──────────┘   │
-└─────────────────────────────────────────────────────────────┘
+기존 SNS:  콘텐츠 생성 → 사용자 매칭 → 피드 노출
+우리 시스템: 사용자 상태 추론 → 전략 결정 → 콘텐츠 생성 → 광고 결합 → 피드 노출
 ```
 
-자세한 내용은 [아키텍처 문서](docs/ARCHITECTURE.md)를 참조하세요.
+---
 
 ## 기술 스택
 
-### Backend
-- **언어**: Python 3.11+
-- **프레임워크**: FastAPI
-- **AI/ML**: Vertex AI (Gemini 2.0 Flash, Imagen 4, text-embedding-004), LangGraph
+| 영역 | 기술 |
+|---|---|
+| API 서버 | Python 3.11, FastAPI, Uvicorn |
+| AI / LLM | Vertex AI Gemini 2.0 Flash |
+| 이미지 생성 | Vertex AI Imagen 4 (`imagen-4.0-fast-generate-001`) |
+| 영상 생성 | Vertex AI Veo 3.1 (`veo-3.1-fast-generate-001`) |
+| 에이전트 프레임워크 | LangGraph 6-노드 파이프라인 |
+| 벡터 DB | PostgreSQL + pgvector |
+| 캐시 | Redis |
+| 스토리지 | Google Cloud Storage (이미지·영상 public URL) |
+| 트레이싱 | Langfuse (셀프 호스팅) |
+| 컨테이너 | Docker Compose |
+| 배포 | Google Cloud Run (Cloud Build) |
 
-### Data Layer
-- **데이터베이스**: PostgreSQL + pgvector (로컬 개발), Cloud SQL (프로덕션)
-- **벡터 검색**: pgvector 768차원 HNSW 인덱스 (초기), Vertex AI Vector Search (확장)
-- **캐시**: Cloud Firestore, Redis
-- **메시징**: Cloud Pub/Sub
-- **분석**: BigQuery
-- **스토리지**: Cloud Storage
+---
 
-### Infrastructure
-- **클라우드**: Google Cloud Platform
-- **컨테이너**: Docker, Cloud Run
-- **IaC**: Terraform
-- **모니터링**: Cloud Monitoring, Cloud Logging
+## LangGraph 파이프라인 (6단계)
 
-### Frontend
-- **모바일**: React Native / Flutter
-- **웹**: React + Next.js
+```
+load_context → state_interpreter → retrieve_candidates
+    → strategy_planner → creative_generator → media_generator
+```
 
-## 빠른 시작
+1. **load_context** — 사용자 프로필 + 벡터 로드 (DB)
+2. **state_interpreter** — 의도·감정·니즈 분석 (LLM)
+3. **retrieve_candidates** — 광고·상품·콘텐츠 후보 검색 (pgvector)
+4. **strategy_planner** — 광고 선택 및 결합 전략 수립 (LLM)
+5. **creative_generator** — SNS 텍스트 + 이미지 프롬프트 생성 (LLM)
+6. **media_generator** — 이미지(Imagen 4) 또는 영상(Veo 3.1) 생성
 
-### 방법 1: Docker로 시작하기 (권장)
+---
+
+## 사전 준비
+
+### 1. GCP 서비스 계정 생성 및 권한 부여
+
+```bash
+# 서비스 계정 생성
+gcloud iam service-accounts create ai-agent-sa \
+  --display-name="AI Agent Service Account"
+
+# 필요한 IAM 역할 부여
+PROJECT_ID=your-gcp-project-id
+SA_EMAIL=ai-agent-sa@${PROJECT_ID}.iam.gserviceaccount.com
+
+gcloud projects add-iam-policy-binding $PROJECT_ID \
+  --member="serviceAccount:${SA_EMAIL}" \
+  --role="roles/aiplatform.user"
+
+gcloud projects add-iam-policy-binding $PROJECT_ID \
+  --member="serviceAccount:${SA_EMAIL}" \
+  --role="roles/storage.objectAdmin"
+
+# 키 파일 다운로드
+gcloud iam service-accounts keys create ~/sa-key.json \
+  --iam-account=$SA_EMAIL
+```
+
+### 2. GCS 버킷 생성 (이미지·영상 저장용)
+
+> Imagen 4 / Veo 3.1은 **us-central1** 리전만 지원합니다.
+
+```bash
+BUCKET_NAME=your-media-bucket-name
+
+# 버킷 생성
+gsutil mb -l us-central1 gs://${BUCKET_NAME}
+
+# public 읽기 권한 설정 (Uniform bucket-level access)
+gsutil iam ch allUsers:objectViewer gs://${BUCKET_NAME}
+```
+
+---
+
+## 빠른 시작 (Docker)
 
 ```bash
 # 1. 저장소 클론
-git clone https://github.com/your-org/addeep-ai-agent.git
-cd addeep-ai-agent
+git clone https://github.com/eunggil/ai_agent.git
+cd ai_agent
 
 # 2. 환경 변수 설정
 cp .env.example .env
-# .env 파일 편집 (GCP_PROJECT_ID, GOOGLE_APPLICATION_CREDENTIALS 등)
-
-# 3. Vertex AI 인증
-gcloud auth application-default login
-
-# 4. Docker Compose로 시작
-docker-compose up -d
-
-# 5. 로그 확인 (첫 실행 시 데모 데이터 자동 시드, 약 3-5분 소요)
-docker-compose logs -f ai-agent
-
-# 6. API 테스트
-curl http://localhost:8000/health
+# .env 편집: GCP_PROJECT_ID, GOOGLE_APPLICATION_CREDENTIALS, GCS_MEDIA_BUCKET 등
 ```
 
-> **첫 실행 시 자동 처리:**
-> - PostgreSQL DB 초기화 (테이블, pgvector 확장)
-> - 데모 데이터 자동 시드 (사용자 15명, 상품/광고/콘텐츠 각 100개)
-> - 벡터 임베딩 생성 (Vertex AI text-embedding-004, 768차원)
-
-**자세한 내용:** [Docker 개발 & 배포 가이드](docs/DOCKER_DEPLOYMENT.md)
-
-### 방법 2: Python 가상환경
+### 텍스트 전용 모드 (GCP 인증 없이 빠른 확인)
 
 ```bash
-# 저장소 클론
-git clone https://github.com/your-org/addeep-ai-agent.git
-cd addeep-ai-agent
+# .env에서 AI_PROVIDER=local, MEDIA_PROVIDER=none 설정 후
+docker-compose up -d
 
-# 가상 환경 생성 및 활성화
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
-
-# 의존성 설치
-pip install -r requirements.txt
-
-# 환경 변수 설정
-cp .env.example .env
-# .env 파일을 편집하여 필요한 값 설정
-
-# 개발 서버 시작
-uvicorn src.api.main:app --reload --port 8000
+# 첫 실행 시 자동 처리:
+#   - PostgreSQL 테이블 생성 + pgvector 확장
+#   - 데모 데이터 자동 시드 (사용자 15명, 상품·광고·콘텐츠 각 100개)
+docker-compose logs -f ai-agent
 ```
 
-### API 테스트
+### 이미지 생성 모드 (Vertex AI Imagen 4)
+
+```bash
+# .env 설정
+# AI_PROVIDER=vertex
+# MEDIA_PROVIDER=vertex_imagen
+# GCS_MEDIA_BUCKET=your-media-bucket-name
+# GOOGLE_APPLICATION_CREDENTIALS=/path/to/sa-key.json
+
+docker-compose up -d
+```
+
+### 영상 생성 모드 (Vertex AI Veo 3.1)
+
+```bash
+# .env 추가 설정
+# VERTEX_VEO_GCS_BUCKET=your-media-bucket-name
+
+# media_type=video 로 요청 시 자동으로 Veo 사용
+```
+
+---
+
+## API 테스트
 
 ```bash
 # 헬스 체크
 curl http://localhost:8000/health
 
-# 기본 피드 조회
-curl "http://localhost:8000/v1/feed?user_id=user_001"
+# 사용자 정보 조회
+curl http://localhost:8000/v1/user/user_001
 
-# AI 피드 생성 요청 (이미지 자동 생성 포함)
+# AI 피드 생성 — 텍스트
 curl -X POST http://localhost:8000/v1/ai/generate-feed \
   -H "Content-Type: application/json" \
-  -d '{
-    "user_id": "user_001",
-    "prompt": "오늘 기분 좋은 패션 아이템 추천해줘"
-  }'
+  -d '{"user_id": "user_001", "prompt": "오늘 기분 좋은 패션 아이템 추천해줘", "media_type": "text"}'
 
-# 생성된 미디어 파일 다운로드
-curl http://localhost:8000/v1/media/<filename>.webp --output image.webp
+# AI 피드 생성 — 이미지
+curl -X POST http://localhost:8000/v1/ai/generate-feed \
+  -H "Content-Type: application/json" \
+  -d '{"user_id": "user_001", "prompt": "봄 신상 뷰티 제품 추천", "media_type": "image"}'
+
+# AI 피드 생성 — 영상 (Veo, 약 60~90초 소요)
+curl -X POST http://localhost:8000/v1/ai/generate-feed \
+  -H "Content-Type: application/json" \
+  -d '{"user_id": "user_003", "prompt": "스포츠 용품 광고", "media_type": "video"}'
 ```
 
-## 문서
+---
 
-### 핵심 문서
-- 📐 [시스템 아키텍처](docs/ARCHITECTURE.md) - 전체 시스템 설계 개요
-- 🤖 [AI Agent 설계](docs/AGENT_DESIGN.md) - **LangGraph 기반 에이전트 상세 설계**
-- 🏪 [PiMS & 온톨로지](docs/PIMS_ONTOLOGY.md) - **상품 정보 관리 및 그래프 DB 설계**
+## Langfuse 트레이싱 (선택)
 
-### 기술 문서
-- 📊 [데이터 스키마](docs/DATA_SCHEMA.md) - BigQuery, Vector DB, Firestore 스키마
-- 🔌 [API 명세서](docs/API_SPEC.md) - REST API 상세 명세
-- 🛠️ [구현 가이드](docs/IMPLEMENTATION_GUIDE.md) - 개발 및 배포 가이드
-- 🐳 [Docker & 배포](docs/DOCKER_DEPLOYMENT.md) - **Docker 개발 환경 및 Cloud Build 배포**
-- ⚡ [빠른 시작 (Mock)](docs/QUICK_START_MOCK.md) - Mock 데이터로 즉시 시작
+LangGraph 파이프라인의 전체 실행 흐름, LLM 호출, 토큰 수를 대시보드에서 확인할 수 있습니다.
+
+```bash
+# Langfuse 서비스 추가 실행
+docker-compose --profile langfuse up -d
+
+# 대시보드: http://localhost:3000
+# 로그인:   admin@local.dev / admin1234
+```
+
+> `.env`의 `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`는 기본값(`pk-lf-local` / `sk-lf-local`)으로
+> Langfuse 초기화 시 자동 생성됩니다. 별도 발급 불필요.
+
+---
+
+## 환경 변수 주요 항목
+
+| 변수 | 설명 | 기본값 |
+|---|---|---|
+| `GCP_PROJECT_ID` | GCP 프로젝트 ID | — |
+| `GCP_REGION` | Cloud Run 배포 리전 | `asia-northeast3` |
+| `GOOGLE_APPLICATION_CREDENTIALS` | SA 키 파일 절대경로 | — |
+| `AI_PROVIDER` | LLM 프로바이더 (`vertex` \| `local`) | `vertex` |
+| `VERTEX_AI_LOCATION` | Gemini 엔드포인트 리전 | `us-central1` |
+| `VERTEX_AI_MEDIA_LOCATION` | Imagen/Veo 리전 (us-central1 고정) | `us-central1` |
+| `MEDIA_PROVIDER` | 미디어 프로바이더 (`none` \| `vertex_imagen`) | `none` |
+| `MEDIA_TYPE` | 기본 미디어 타입 (`text` \| `image` \| `video`) | `image` |
+| `GCS_MEDIA_BUCKET` | 이미지·영상 저장 GCS 버킷 | — |
+| `VERTEX_VEO_GCS_BUCKET` | Veo 출력 버킷 (영상 생성 시 필수) | — |
+| `LANGFUSE_PUBLIC_KEY` | Langfuse 프로젝트 공개 키 | `pk-lf-local` |
+| `LANGFUSE_SECRET_KEY` | Langfuse 프로젝트 비밀 키 | `sk-lf-local` |
+
+전체 항목은 `.env.example` 참조.
+
+---
 
 ## 프로젝트 구조
 
 ```
-addeep-ai-agent/
-├── src/                      # 소스 코드
-│   ├── api/                 # API 엔드포인트
-│   ├── core/                # 핵심 비즈니스 로직
-│   │   ├── vector/         # 벡터 생성/검색
-│   │   ├── ai_agent/       # AI Agent (3단계)
-│   │   ├── feed/           # 피드 생성
-│   │   └── ads/            # 광고 매칭
-│   ├── data/                # 데이터 레이어
-│   ├── workers/             # 백그라운드 워커
-│   └── models/              # 데이터 모델
-├── tests/                    # 테스트
-├── infrastructure/           # 인프라 코드 (Terraform, Docker)
-├── docs/                     # 문서
-└── scripts/                  # 유틸리티 스크립트
+ai_agent/
+├── src/
+│   ├── api/                  # FastAPI 엔드포인트 (main.py)
+│   └── core/
+│       └── ai_agent/
+│           ├── agent.py      # LangGraph 6-노드 파이프라인
+│           ├── state.py      # 에이전트 상태 스키마
+│           ├── db_data.py    # DB 조회 (pgvector)
+│           ├── providers/    # LLM 프로바이더 (Vertex AI, Ollama)
+│           └── media_providers/  # 미디어 생성 (Imagen, Veo, Replicate)
+├── scripts/
+│   ├── init_db.sql           # PostgreSQL 초기화
+│   ├── seed_demo_data.py     # 데모 데이터 시드
+│   └── entrypoint.sh         # 컨테이너 시작 스크립트 (자동 시드)
+├── docs/                     # 상세 문서
+├── docker-compose.yml
+├── Dockerfile.dev
+├── requirements.txt
+└── .env.example
 ```
-
-## 개발 로드맵
-
-### Phase 1: MVP (Month 1-2)
-- [x] 데이터 파이프라인 구축
-- [x] 기본 벡터 시스템
-- [ ] 배치 피드 생성
-- [ ] 간단한 광고 매칭
-- **Goal**: 100명 테스트 유저
-
-### Phase 2: AI 기능 (Month 3-4)
-- [ ] AI Agent 전체 구현
-- [ ] 온디맨드 생성
-- [ ] 광고 통합 3가지 방식
-- **Goal**: 1,000명 베타 유저
-
-### Phase 3: 최적화 (Month 5-6)
-- [ ] 성능 최적화
-- [ ] 비용 최적화
-- [ ] 품질 개선
-- **Goal**: 10,000명 유저
-
-### Phase 4: 확장 (Month 7-12)
-- [ ] 글로벌 배포
-- [ ] 다국어 지원
-- [ ] 고급 기능
-- **Goal**: 100,000명 유저
-
-## 핵심 컨셉
-
-### 0. 에이전트는 상태머신이다
-
-**현대 AI 에이전트 트렌드:**
-- 단순 LLM 호출이 아닌 **상태머신/그래프 런타임**
-- 재시도, 분기, 승인, 중단이 프로덕션의 핵심
-- **LangGraph**로 노드/엣지/상태 관리
-- **Vertex AI Agent Engine**으로 세션/메모리/도구 거버넌스
-
-> 자세한 내용은 [AGENT_DESIGN.md](docs/AGENT_DESIGN.md) 참조
-
-### 1. 사용자 벡터 계층화
-
-사용자를 이해하기 위해 2개의 벡터를 유지합니다:
-
-- **장기 벡터** (Long-term Vector)
-  - 가치관, 라이프스타일, 장기 관심사
-  - 배치 업데이트 (1일 1-2회)
-
-- **단기 벡터** (Short-term Vector)
-  - 현재 의도, 세션 컨텍스트, 즉각적 관심사
-  - 실시간 업데이트 (이벤트 기반)
-
-최종 벡터는 상황에 따라 가중 결합합니다.
-
-### 2. AI Agent 3단계
-
-AI 생성은 반드시 3단계를 거칩니다:
-
-1. **State Interpreter** (상태 해석기)
-   - 사용자의 현재 감정, 의도, 니즈 분석
-
-2. **Strategy Planner** (전략 결정기)
-   - 광고 매칭 및 통합 전략 수립
-
-3. **Creative Generator** (미디어 생성기)
-   - 실제 콘텐츠 생성
-
-> ⚠️ 바로 생성하지 않고 단계를 거치는 이유:
-> - 디버깅 가능성
-> - 비용 최적화
-> - 품질 보장
-> - 독립적 개선
-
-### 3. 광고 매칭 4단계
-
-광고는 단순 유사도가 아닌 4단계 프로세스로 선택합니다:
-
-1. **벡터 유사도 검색** - Top-K 후보 추출
-2. **캠페인 룰 필터링** - 타겟팅 룰 검증
-3. **수익 스코어 계산** - eCPM 기반 수익 예측
-4. **전략 적합도 평가** - 사용자 상태 적합도
-
-최종 스코어 = 수익(60%) + 적합도(40%)
-
-### 4. PiMS와 온톨로지
-
-**PiMS (Product Information Management System):**
-- 단순 상품 DB가 아닌 **AI 연료 토큰 시스템**
-- 패션/주얼리/코스메틱 각 카테고리별 표준 온톨로지
-- LLM 자동화 파이프라인 (추출 → 정규화 → 검증 → 토큰 생성)
-
-**그래프 DB 활용:**
-- 브랜드-정책-권리-캠페인 **제약 관계** 모델링
-- 하이브리드 검색: **벡터(유사도) + 그래프(제약)**
-- "붙일 수 있는지" 검증 + 근거 체인
-
-> 자세한 내용은 [PIMS_ONTOLOGY.md](docs/PIMS_ONTOLOGY.md) 참조
-
-## 비용 예측
-
-### MVP 단계 (0-10K users)
-- 총 비용: ~$1,250/월
-- 사용자당 비용: ~$0.125/월
-
-### 성장기 (10K-100K users)
-- 총 비용: ~$5,500/월
-- 사용자당 비용: ~$0.055/월
-
-### 확장기 (100K-1M users)
-- 총 비용: ~$22,000/월
-- 사용자당 비용: ~$0.022/월
-
-자세한 비용 분석은 [아키텍처 문서](docs/ARCHITECTURE.md#8-확장-전략)를 참조하세요.
-
-## 기여하기
-
-기여를 환영합니다! 다음 가이드라인을 따라주세요:
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## 라이선스
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 연락처
-
-- **프로젝트 리드**: [Your Name](mailto:your.email@example.com)
-- **이슈 트래커**: [GitHub Issues](https://github.com/your-org/addeep-ai-agent/issues)
-- **문서**: [GitHub Wiki](https://github.com/your-org/addeep-ai-agent/wiki)
-
-## 감사의 말
-
-- Google Cloud Platform for infrastructure
-- Anthropic Claude for AI capabilities
-- The open-source community
 
 ---
 
-**Built with ❤️ by the AI Agent Team**
+## 문서
+
+- [시스템 아키텍처](docs/ARCHITECTURE.md)
+- [AI Agent 설계](docs/AGENT_DESIGN.md)
+- [API 명세](docs/API_SPEC.md)
+- [데이터 스키마](docs/DATA_SCHEMA.md)
+- [Docker & 배포](docs/DOCKER_DEPLOYMENT.md)
+
+---
+
+## 라이선스
+
+MIT License
