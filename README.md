@@ -107,6 +107,11 @@ cp .env.example .env
 
 ```bash
 # .env에서 AI_PROVIDER=local, MEDIA_PROVIDER=none 설정 후
+
+# 최초 실행 시 이미지 빌드
+docker-compose build
+
+# 컨테이너 시작
 docker-compose up -d
 
 # 첫 실행 시 자동 처리:
@@ -124,6 +129,7 @@ docker-compose logs -f ai-agent
 # GCS_MEDIA_BUCKET=your-media-bucket-name
 # GOOGLE_APPLICATION_CREDENTIALS=/path/to/sa-key.json
 
+docker-compose build
 docker-compose up -d
 ```
 
