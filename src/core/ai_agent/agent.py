@@ -407,7 +407,11 @@ class FeedAgent:
             "media_provider_name": self.media_provider.name if self.media_provider else "none",
             "error": None,
         }
-        return self.graph.invoke(initial_state)
+        config = {"run_name": f"feed_{user_id}"}
+        handler = _get_langfuse_handler(user_id)
+        if handler:
+            config["callbacks"] = [handler]
+        return self.graph.invoke(initial_state, config=config)
 
 
 # 싱글턴
@@ -424,6 +428,25 @@ def get_agent() -> FeedAgent:
 # ──────────────────────────────────────────
 # 유틸
 # ──────────────────────────────────────────
+
+def _get_langfuse_handler(user_id: str = ""):
+    """Langfuse 트레이싱 콜백 핸들러 반환. 설정 없으면 None."""
+    secret_key = os.getenv("LANGFUSE_SECRET_KEY", "")
+    public_key = os.getenv("LANGFUSE_PUBLIC_KEY", "")
+    if not secret_key or not public_key:
+        return None
+    try:
+        from langfuse.callback import CallbackHandler
+        return CallbackHandler(
+            secret_key=secret_key,
+            public_key=public_key,
+            host=os.getenv("LANGFUSE_HOST", "http://langfuse-web:3000"),
+            session_id=user_id or None,
+        )
+    except Exception as e:
+        logger.warning(f"Langfuse 초기화 실패 (트레이싱 비활성화): {e}")
+        return None
+
 
 def _strip_md_json(text: str) -> str:
     """LLM 응답에서 JSON 객체만 추출 (```json ... ``` 래퍼 제거)."""
