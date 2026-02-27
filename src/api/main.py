@@ -151,7 +151,7 @@ async def generate_ai_feed(request: AIGenerateRequest):
         ad_image_url = selected_ad.get("image_url", "")
 
         # 미디어 결과 구성
-        # data_type="url"  → GCS public URL 직접 사용
+        # data_type="url"  → GCS public URL 직접 사용 (개발환경에서는 로컬에도 저장)
         # data_type="base64" → 로컬 파일 저장 후 /v1/media/{filename} 반환 (fallback)
         media_result = None
         if result.get("media_data"):
@@ -161,6 +161,20 @@ async def generate_ai_feed(request: AIGenerateRequest):
 
             if data_type == "url":
                 media_url = result["media_data"]
+                # 개발/스테이징 환경에서는 GCS 파일을 로컬에도 저장
+                if ENVIRONMENT != "production":
+                    try:
+                        import httpx as _httpx
+                        ext = mime_type.split("/")[-1]
+                        filename = f"{uuid.uuid4().hex}.{ext}"
+                        filepath = os.path.join(MEDIA_OUTPUT_DIR, filename)
+                        resp = _httpx.get(media_url, timeout=60)
+                        resp.raise_for_status()
+                        with open(filepath, "wb") as f:
+                            f.write(resp.content)
+                        logger.info(f"Media saved locally: {filepath}")
+                    except Exception as e:
+                        logger.warning(f"Local save skipped: {e}")
             else:
                 ext = mime_type.split("/")[-1]
                 filename = f"{uuid.uuid4().hex}.{ext}"
